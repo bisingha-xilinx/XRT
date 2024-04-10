@@ -798,6 +798,14 @@ public:
   get_axlf() const;
 
   /**
+   * It is a wrapper to access the private function get_axlf_section()
+   * to get the AIE_METADATA
+   */
+  std::pair<const char*, size_t> getAIE_Metadata_Wrapper(xrt::xclbin xclbin_obj){
+	  return xclbin_obj.get_axlf_section(AIE_METADATA);
+  }
+
+  /**
    * get_axlf_section() - Retrieve specified xclbin section
    *
    * @param section

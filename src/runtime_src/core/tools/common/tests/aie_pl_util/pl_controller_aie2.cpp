@@ -60,9 +60,9 @@ void dynBuffer::add(uint32_t* data, int blk_size) {
     m_usedSize += blk_size;
 }
 
-plController_aie2::plController_aie2(const std::string& aie_info_path, const std::string& dma_info_path)
-    : m_aie_info_path(aie_info_path),
-      m_dma_info_path(dma_info_path),
+plController_aie2::plController_aie2(const std::string& dma_info_path, boost::property_tree::ptree& aie_meta_info)
+    : m_dma_info_path(dma_info_path),
+      m_aie_meta_info(aie_meta_info),
       m_outputSize(0),
       m_set_num_iter(false)
 {
@@ -179,12 +179,7 @@ void plController_aie2::enqueue_write(int addr, int val) {
 // re-use this code from "core/edge/common/aie_parser.cpp"
 void plController_aie2::get_rtp() {
     boost::property_tree::ptree aie_meta;
-    std::ifstream jsonFile(m_aie_info_path);
-    if (!jsonFile.good())
-	throw std::runtime_error("get_rtp():ERROR:No aie info file specified");
-
-    boost::property_tree::json_parser::read_json(m_aie_info_path, aie_meta);
-
+    aie_meta = m_aie_meta_info;
     for (auto& rtp_node : aie_meta.get_child("aie_metadata.RTPs")) {
         rtp_type rtp;
 
@@ -216,11 +211,7 @@ void plController_aie2::get_rtp() {
 
 std::vector<tile_type> plController_aie2::get_tiles(const std::string& graph_name) {
     boost::property_tree::ptree aie_meta;
-    std::ifstream jsonFile(m_aie_info_path);
-    if (!jsonFile.good())
-	throw std::runtime_error("get_tiles():ERROR:No aie info file specified");
-
-    boost::property_tree::json_parser::read_json(m_aie_info_path, aie_meta);
+    aie_meta = m_aie_meta_info;
     std::vector<tile_type> tiles;
 
     for (auto& graph : aie_meta.get_child("aie_metadata.graphs")) {

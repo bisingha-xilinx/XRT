@@ -40,7 +40,7 @@ class plController
     /* Constructor
     */
     plController() = delete;
-    plController(const std::string& aie_info_path, const std::string& dma_info_path);
+    plController(const std::string& dma_info_path, boost::property_tree::ptree& aie_meta_info);
 
     void enqueue_set_aie_iteration(const std::string& graphName, int num_iter);
 
@@ -94,8 +94,8 @@ class plController
     std::vector<uint32_t> m_opcodeBuffer;
     std::vector<uint32_t> m_metadata;
 
-    std::string m_aie_info_path;
     std::string m_dma_info_path;
+    boost::property_tree::ptree m_aie_meta_info;
     uint32_t m_outputSize;
     bool m_ping_pong;
 };

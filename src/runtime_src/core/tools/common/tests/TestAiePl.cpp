@@ -13,6 +13,7 @@ namespace XBU = XBUtilities;
 
 // XRT includes
 #include "experimental/xrt_system.h"
+#include "experimental/xrt_xclbin.h"
 #include "xrt/xrt_bo.h"
 #include "xrt/xrt_device.h"
 #include "xrt/xrt_kernel.h"
@@ -40,8 +41,8 @@ TestAiePl::run(std::shared_ptr<xrt_core::device> dev)
   return ptree;
 }
 
-bool run_pl_controller_aie1(xrt::device device, xrt::uuid uuid, std::string aie_control, std::string dma_lock) {
-  xf::plctrl::plController m_pl_ctrl(aie_control.c_str(), dma_lock.c_str());
+bool run_pl_controller_aie1(xrt::device device, xrt::uuid uuid, std::string dma_lock, boost::property_tree::ptree aie_meta) {
+  xf::plctrl::plController m_pl_ctrl(dma_lock.c_str(), aie_meta);
 
   unsigned int num_iter = 2;
   unsigned int num_sample = 16;
@@ -143,9 +144,9 @@ bool run_pl_controller_aie1(xrt::device device, xrt::uuid uuid, std::string aie_
   return match;
 }
 
-bool run_pl_controller_aie2(xrt::device device, xrt::uuid uuid, std::string aie_control, std::string dma_lock) {
+bool run_pl_controller_aie2(xrt::device device, xrt::uuid uuid, std::string dma_lock, boost::property_tree::ptree aie_meta) {
   // instance of plController
-  xf::plctrl::plController_aie2 m_pl_ctrl(aie_control.c_str(), dma_lock.c_str());
+  xf::plctrl::plController_aie2 m_pl_ctrl(dma_lock.c_str(), aie_meta);
 
   unsigned int num_iter = 1;
   unsigned int num_sample = 32;
@@ -227,24 +228,44 @@ bool run_pl_controller_aie2(xrt::device device, xrt::uuid uuid, std::string aie_
   return match;
 }
 
+bool getAIE_Metadata(std::string test_path, boost::property_tree::ptree& aie_meta){
+  bool res = true;
+
+  //default is pl_controller_aie.xclbin
+  std::string b_file = "pl_controller_aie.xclbin";
+  auto binaryFile = std::filesystem::path(test_path) / b_file;
+  std::ifstream infile(binaryFile.string());
+  if (!infile.good()) {
+    b_file = "vck5000_pcie_pl_controller.xclbin.xclbin";
+    auto binaryFile = std::filesystem::path(test_path) / b_file;
+    std::ifstream infile(binaryFile.string());
+    if (!infile.good()) {
+      return false;
+    }
+  }
+
+  //create an xclbin obj
+  auto xclbin_obj = xrt::xclbin(binaryFile);
+  auto metadata = xclbin_obj.getAIE_Metadata_Wrapper(xclbin_obj);
+  std::istringstream metadataStream(metadata.first);
+  boost::property_tree::read_json(metadataStream, aie_meta);
+  return res;
+}
+
 void
 TestAiePl::runTest(std::shared_ptr<xrt_core::device> dev, boost::property_tree::ptree& ptree)
 {
   xrt::device device(dev);
 
   const std::string test_path = findPlatformPath(dev, ptree);
-  const std::string aie_control_file = "aie_control_config.json";
-  auto aie_control = std::filesystem::path(test_path) / aie_control_file;
+  boost::property_tree::ptree aie_meta;
 
-  std::ifstream aiefile(aie_control.string());
-  if (!aiefile.good()) {
-    logger(ptree, "Details", boost::str(boost::format("The given file could not be found: %s") % aie_control.string()));
+  if (!getAIE_Metadata(test_path, aie_meta)) {
+    logger(ptree, "Details", boost::str(boost::format("The AIE_METADATA could not be found: %s")));
     ptree.put("status", test_token_skipped);
     return;
   }
 
-  boost::property_tree::ptree aie_meta;
-  read_json(aie_control.string(), aie_meta);
   auto driver_info_node = aie_meta.get_child("aie_metadata.driver_config");
   auto hw_gen_node = driver_info_node.get_child("hw_gen");
   auto hw_gen = std::stoul(hw_gen_node.data());
@@ -276,10 +297,10 @@ TestAiePl::runTest(std::shared_ptr<xrt_core::device> dev, boost::property_tree::
   // Check for AIE Hardware Generation
   switch (hw_gen) {
     case 1:
-      match = run_pl_controller_aie1(device, uuid, aie_control.string(), dma_lock.string());
+      match = run_pl_controller_aie1(device, uuid, dma_lock.string(), aie_meta);
       break;
     case 2:
-      match = run_pl_controller_aie2(device, uuid, aie_control.string(), dma_lock.string());
+      match = run_pl_controller_aie2(device, uuid, dma_lock.string(), aie_meta);
       break;
     default:
       logger(ptree, "Error", "Unsupported AIE Hardware");
