@@ -9,8 +9,10 @@
 #include "core/common/shim/shared_handle.h"
 
 #include "xrt/xrt_hw_context.h"
+#include "xcl_graph.h"
 
 #include <memory>
+#include <stdexcept>
 
 namespace xrt_core {
 
@@ -91,6 +93,12 @@ public:
   // hardware queues
   virtual void
   exec_buf(buffer_handle* cmd) = 0;
+
+  virtual xclGraphHandle
+  open_graph(const char*,xrt::graph::access_mode)
+  {
+    throw std::runtime_error(std::string("not supported ") + __func__);
+  }
 };
 
 } // xrt_core

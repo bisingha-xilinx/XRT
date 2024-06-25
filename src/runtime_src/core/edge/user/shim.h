@@ -235,6 +235,14 @@ public:
     {
       m_shim->xclExecBuf(cmd->get_xcl_handle());
     }
+    xclGraphHandle
+    open_graph(const char* name, xrt::graph::access_mode am) override
+    {
+	  //calling the below function is temporary here as it is continuing the old flow  where this function accepts xclbin uuid,
+	  //In future , this will be changed with new flow where hw context will be passed to "graph_type",
+	  //and graph functions will be changed accordingly with respect to hw context.
+      return xclGraphOpen(m_shim, m_uuid.get(), name, am);
+    }
   }; // class hwcontext
 
   ~shim();
