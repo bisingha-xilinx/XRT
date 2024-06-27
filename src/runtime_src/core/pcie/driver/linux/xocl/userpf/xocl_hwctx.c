@@ -73,7 +73,7 @@ int xocl_create_hw_context(struct xocl_dev *xdev, struct drm_file *filp,
 
 error_out:
 	mutex_unlock(&client->lock);
-	XOCL_PUT_XCLBIN_ID(xdev, slot_id);
+	XOCL_PUT_XCLBIN_ID(xdev, slot_id);  //why this step after unlocking. Need to investigate. Skipping it for now on zocl_create_hw_ctx()
 	return ret;
 }
 
