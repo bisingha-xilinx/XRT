@@ -31,6 +31,7 @@
 namespace zynqaie {
 
 Aie::Aie(const std::shared_ptr<xrt_core::device>& device)
+  : m_device{device}
 {
   DevInst = {0};
   devInst = nullptr;
@@ -89,6 +90,7 @@ Aie::Aie(const std::shared_ptr<xrt_core::device>& device)
 }
 
 Aie::Aie(const std::shared_ptr<xrt_core::device>& device, const zynqaie::hwctx_object* hwctx_obj)
+  : m_device{device}
 {
   DevInst = {0};
   devInst = nullptr;
@@ -151,6 +153,13 @@ Aie::~Aie()
 {
   if (devInst)
     XAie_Finish(devInst);
+
+  if (is_context_set() == true) {
+    auto drv = ZYNQ::shim::handleCheck(m_device->get_device_handle());
+    if (auto ret = drv->closeAIEContext())
+      throw xrt_core::error(ret, "Failed to close AIE context");
+  }
+
 }
 
 XAie_DevInst* Aie::getDevInst()

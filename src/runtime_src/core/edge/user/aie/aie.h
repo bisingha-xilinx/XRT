@@ -139,6 +139,7 @@ public:
     clear_bd(BD& bd);
 
 private:
+    std::shared_ptr<xrt_core::device> m_device;
     int numCols;
     int fd;
     xrt::aie::access_mode access_mode = xrt::aie::access_mode::none;

@@ -2144,6 +2144,15 @@ openAIEContext(xrt::aie::access_mode am)
   return ret ? -errno : ret;
 }
 
+int
+shim::
+closeAIEContext()
+{
+  drm_zocl_ctx ctx = {0};
+  ctx.op = ZOCL_CTX_OP_FREE_AIE_CTX;
+  return ioctl(mKernelFD, DRM_IOCTL_ZOCL_CTX, &ctx);
+}
+
 xrt::aie::access_mode
 shim::
 getAIEAccessMode()
