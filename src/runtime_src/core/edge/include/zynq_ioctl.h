@@ -69,6 +69,8 @@
  *      context
  * 21   Open graph context                     DRM_IOCTL_ZOCL_OPEN_GRAPH_CTX  drm_zocl_open_graph_ctx
  * 22   Close graph context                    DRM_IOCTL_ZOCL_CLOSE_GRAPH_CTX drm_zocl_close_graph_ctx
+ * 23   Open AIE context                       DRM_IOCTL_ZOCL_OPEN_AIE_CTX    drm_zocl_open_aie_ctx
+ * 24   Close AIE context                      DRM_IOCTL_ZOCL_CLOSE_AIE_CTX   drm_zocl_close_aie_ctx
  *
  * ==== ====================================== ============================== ==================================
  */
@@ -126,6 +128,10 @@ enum drm_zocl_ops {
 	DRM_ZOCL_OPEN_GRAPH_CTX,
 	/* Close graph context */
 	DRM_ZOCL_CLOSE_GRAPH_CTX,
+	/* Open AIE context */
+	DRM_ZOCL_OPEN_AIE_CTX,
+	/* Close AIE context */
+	DRM_ZOCL_CLOSE_AIE_CTX,
 	/* Get the soft kernel command */
 	DRM_ZOCL_SK_GETCMD,
 	/* Create the soft kernel */
@@ -571,6 +577,28 @@ struct drm_zocl_close_graph_ctx {
 	uint32_t	graph_id;
 };
 
+/**
+ * struct drm_zocl_open_aie_ctx - Opens an AIE context under a hw context on device
+ * used with DRM_IOCTL_ZOCL_OPEN_AIE_CTX
+ *
+ * @hw_context:	open an AIE context under this hw context handle
+ * @flags:	Shared or Exclusive context (ZOCL_CTX_SHARED/ZOCL_CTX_EXCLUSIVE)
+ */
+struct drm_zocl_open_aie_ctx {
+	uint32_t	hw_context;
+	uint32_t	flags;
+};
+
+/**
+ * struct drm_zocl_close_aie_ctx - Closes an AIE context under a hw context on device
+ * used with DRM_IOCTL_ZOCL_CLOSE_AIE_CTX
+ *
+ * @hw_context:	close an AIE context under this hw context handle
+ */
+struct drm_zocl_close_aie_ctx {
+	uint32_t	hw_context;
+};
+
 #define	ZOCL_MAX_NAME_LENGTH		32
 #define	ZOCL_MAX_PATH_LENGTH		255
 #define AIE_INFO_SIZE			4096
@@ -705,6 +733,10 @@ struct drm_zocl_error_inject {
                                        DRM_ZOCL_OPEN_GRAPH_CTX, struct drm_zocl_open_graph_ctx)
 #define DRM_IOCTL_ZOCL_CLOSE_GRAPH_CTX DRM_IOWR(DRM_COMMAND_BASE + \
                                        DRM_ZOCL_CLOSE_GRAPH_CTX, struct drm_zocl_close_graph_ctx)
+#define DRM_IOCTL_ZOCL_OPEN_AIE_CTX    DRM_IOWR(DRM_COMMAND_BASE + \
+                                       DRM_ZOCL_OPEN_AIE_CTX, struct drm_zocl_open_aie_ctx)
+#define DRM_IOCTL_ZOCL_CLOSE_AIE_CTX   DRM_IOWR(DRM_COMMAND_BASE + \
+                                       DRM_ZOCL_CLOSE_AIE_CTX, struct drm_zocl_close_aie_ctx)
 #define DRM_IOCTL_ZOCL_SK_GETCMD       DRM_IOWR(DRM_COMMAND_BASE + \
                                        DRM_ZOCL_SK_GETCMD, struct drm_zocl_sk_getcmd)
 #define DRM_IOCTL_ZOCL_SK_CREATE       DRM_IOWR(DRM_COMMAND_BASE + \

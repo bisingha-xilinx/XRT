@@ -58,6 +58,14 @@ struct zocl_hw_graph_ctx {
 	u32			hw_context;
 };
 
+struct zocl_hw_aie_ctx {
+	u32			partition_id; // TODO: partition_id can be derived from start_col/num_cols and viceversa. Cleanup required
+	u32			start_col;
+	u32			num_cols;
+	u32			flags;
+	u32			hw_context;
+};
+
 #ifdef __NONE_PETALINUX__
 
 #define AIE_ERROR_CATEGORY_SATURATION		0U

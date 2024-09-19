@@ -82,7 +82,7 @@ public:
     ~Aie();
     Aie(const std::shared_ptr<xrt_core::device>& device);
 
-    Aie(const std::shared_ptr<xrt_core::device>& device, const zynqaie::hwctx_object* hwctx_obj);
+    Aie(const std::shared_ptr<xrt_core::device>& device, zynqaie::hwctx_object* hwctx_obj);
 
     std::vector<ShimDMA> shim_dma;   // shim DMA // not used anymore, should be cleanedup
 
@@ -100,7 +100,7 @@ public:
     open_context(const xrt_core::device* device, xrt::aie::access_mode am);
 
     void
-    open_context(const xrt_core::device* device, const zynqaie::hwctx_object* hwctx_obj, xrt::aie::access_mode am);
+    open_context(const xrt_core::device* device, zynqaie::hwctx_object* hwctx_obj, xrt::aie::access_mode am);
 
     bool
     is_context_set();
@@ -140,6 +140,7 @@ public:
 
 private:
     std::shared_ptr<xrt_core::device> m_device;
+    zynqaie::hwctx_object* m_hwctx = nullptr;
     int numCols;
     int fd;
     xrt::aie::access_mode access_mode = xrt::aie::access_mode::none;

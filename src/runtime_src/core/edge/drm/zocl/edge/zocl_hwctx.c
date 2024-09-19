@@ -14,7 +14,7 @@ int zocl_create_hw_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_create_hw_ctx 
     struct drm_zocl_slot *slot = NULL;
     struct kds_client *client = filp->driver_priv;
     int ret = 0;
-
+    DRM_INFO("++ %s: landed .. will be creating the hw context\n", __func__);
     if (!client) {
         DRM_ERROR("%s: Invalid client", __func__);
         return -EINVAL;
@@ -46,6 +46,7 @@ int zocl_create_hw_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_create_hw_ctx 
 
 error_out:
     mutex_unlock(&client->lock);
+    DRM_INFO("++ %s: created the hw context with rcode=%d\n", __func__, ret);
     return ret;
 }
 
@@ -55,7 +56,7 @@ int zocl_destroy_hw_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_destroy_hw_ct
     struct drm_zocl_slot *slot = NULL;
     struct kds_client *client = filp->driver_priv;
     int ret = 0;
-
+    DRM_INFO("++ %s: landed .. will be destroying the hw context\n", __func__);
     if (!client) {
         DRM_ERROR("%s: Invalid client", __func__);
         return -EINVAL;
@@ -78,6 +79,7 @@ int zocl_destroy_hw_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_destroy_hw_ct
     }
     ret = kds_free_hw_ctx(client, kds_hw_ctx);
     mutex_unlock(&client->lock);
+    DRM_INFO("++ %s: destroyed the hw context with rcode=%d\n", __func__, ret);
     return ret;
 }
 
@@ -145,7 +147,7 @@ int zocl_open_cu_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_open_cu_ctx *drm
     struct kds_client *client = filp->driver_priv;
     struct kds_client_cu_info kds_cu_info = {};
     int ret = 0;
-
+    DRM_INFO("++ %s: landed .. will be opening the cu context\n", __func__);
     if (!client) {
         DRM_ERROR("%s: Invalid client", __func__);
         return -EINVAL;
@@ -184,6 +186,7 @@ int zocl_open_cu_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_open_cu_ctx *drm
 
 out:
     mutex_unlock(&client->lock);
+    DRM_INFO("++ %s: opened the cu context with rcode=%d\n", __func__, ret);
     return ret;
 }
 
@@ -194,7 +197,7 @@ int zocl_close_cu_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_close_cu_ctx *d
     struct kds_client *client = filp->driver_priv;
     struct kds_client_cu_info kds_cu_info = {};
     int ret = 0;
-
+    DRM_INFO("++ %s: landed .. will be closing the cu context\n", __func__);
     if (!client) {
         DRM_ERROR("%s: Invalid client", __func__);
         return -EINVAL;
@@ -226,6 +229,7 @@ int zocl_close_cu_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_close_cu_ctx *d
 
 out:
     mutex_unlock(&client->lock);
+    DRM_INFO("++ %s: closed the cu context with rcode=%d\n", __func__, ret);
     return ret;
 }
 
@@ -532,7 +536,7 @@ int zocl_open_graph_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_open_graph_ct
     struct kds_client_hw_ctx *kds_hw_ctx = NULL;
     struct kds_client *client = filp->driver_priv;
     int ret = 0;
-
+    DRM_INFO("++ %s: landed .. will be opening the graph context\n", __func__);
     if (!client) {
         DRM_ERROR("%s: Invalid client", __func__);
         return -EINVAL;
@@ -548,6 +552,7 @@ int zocl_open_graph_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_open_graph_ct
 
 out:
     mutex_unlock(&client->lock);
+    DRM_INFO("++ %s: opened the graph context with rcode=%d\n", __func__, ret);
     return ret;
 }
 
@@ -576,7 +581,7 @@ int zocl_close_graph_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_close_graph_
     struct kds_client_hw_ctx *kds_hw_ctx = NULL;
     struct kds_client *client = filp->driver_priv;
     int ret = 0;
-
+    DRM_INFO("++ %s: landed .. will be closing the graph context\n", __func__);
     if (!client) {
         DRM_ERROR("%s: Invalid client", __func__);
         return -EINVAL;
@@ -594,5 +599,123 @@ int zocl_close_graph_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_close_graph_
 
 out:
     mutex_unlock(&client->lock);
+    DRM_INFO("++ %s: deleted the graph context with rcode=%d\n", __func__, ret);
+    return ret;
+}
+
+static int zocl_add_hw_aie_context(struct kds_client *client, struct kds_client_hw_ctx *kds_hw_ctx, struct drm_zocl_open_aie_ctx *drm_aie_ctx)
+{
+    struct list_head *hptr;
+    struct kds_client_hw_ctx *hwctx;
+    struct zocl_hw_aie_ctx *aie_ctx;
+    int ret = 0;
+
+    if (kds_hw_ctx->aie_ctx) {
+        DRM_ERROR("%s: AIE context is active for this hw context", __func__);
+        ret = -EBUSY;
+        goto out;
+    }
+
+    list_for_each(hptr, &client->hw_ctx_list) {
+        hwctx = list_entry(hptr, struct kds_client_hw_ctx, link);
+
+        if (hwctx == kds_hw_ctx || hwctx->aie_ctx != NULL || hwctx->aie_ctx->flags == ZOCL_CTX_NOOPS)
+            continue;
+
+        // TODO: need to have a check for start_col, num_cols. Incoming AIE context request should not overlap
+        if (hwctx->aie_ctx->flags == ZOCL_CTX_EXCLUSIVE || drm_aie_ctx->flags == ZOCL_CTX_EXCLUSIVE) {
+            DRM_ERROR("%s: Only one exclusive AIE context can be allocated", __func__);
+            ret = -EBUSY;
+            goto out;
+        }
+
+        if (hwctx->aie_ctx->flags == ZOCL_CTX_PRIMARY || drm_aie_ctx->flags != ZOCL_CTX_SHARED) {
+            DRM_ERROR("%s: Primary AIE context has been allocated", __func__);
+            ret = -EBUSY;
+            goto out;
+        }
+    }
+
+    aie_ctx = kzalloc(sizeof(*aie_ctx), GFP_KERNEL);
+    if (!aie_ctx) {
+        DRM_ERROR("%s: Failed to allocate memory", __func__);
+        ret = -ENOMEM;
+        goto out;
+    }
+
+    aie_ctx->flags = drm_aie_ctx->flags;
+    aie_ctx->hw_context = drm_aie_ctx->hw_context;
+    kds_hw_ctx->aie_ctx = aie_ctx;
+    return 0;
+
+out:
+    DRM_ERROR("%s: Failed to add AIE context for hw_context id = %d", __func__, drm_aie_ctx->hw_context);
+    return ret;
+}
+
+int zocl_open_aie_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_open_aie_ctx *drm_aie_ctx, struct drm_file *filp)
+{
+    struct kds_client_hw_ctx *kds_hw_ctx = NULL;
+    struct kds_client *client = filp->driver_priv;
+    int ret= 0;
+    DRM_INFO("++ %s: landed .. will be opening the aie context\n", __func__);
+
+    if (!client) {
+        DRM_ERROR("%s: Invalid client", __func__);
+        return -EINVAL;
+    }
+    mutex_lock(&client->lock);
+
+    kds_hw_ctx = kds_get_hw_ctx_by_id(client, drm_aie_ctx->hw_context);
+    if (!kds_hw_ctx) {
+        DRM_ERROR("%s: No valid hw context is open", __func__);
+        ret = -EINVAL;
+        goto out;
+    }
+
+    ret = zocl_add_hw_aie_context(client, kds_hw_ctx, drm_aie_ctx);
+
+out:
+    mutex_unlock(&client->lock);
+    DRM_INFO("++ %s: opened the aie context with rcode=%d\n", __func__, ret);
+    return ret;
+}
+
+static int zocl_del_hw_aie_context(struct kds_client_hw_ctx *kds_hw_ctx)
+{
+    if (!kds_hw_ctx->aie_ctx) {
+        DRM_WARN("%s: No AIE context has been allocated for this hw context", __func__);
+        return 0;
+    }
+
+    kfree(kds_hw_ctx->aie_ctx);
+    return 0;
+}
+
+int zocl_close_aie_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_close_aie_ctx *drm_aie_ctx, struct drm_file *filp)
+{
+    struct kds_client_hw_ctx *kds_hw_ctx = NULL;
+    struct kds_client *client = filp->driver_priv;
+    int ret= 0;
+    DRM_INFO("++ %s: landed .. will be closing the aie context\n", __func__);
+
+    if (!client) {
+        DRM_ERROR("%s: Invalid client", __func__);
+        return -EINVAL;
+    }
+    mutex_lock(&client->lock);
+
+    kds_hw_ctx = kds_get_hw_ctx_by_id(client, drm_aie_ctx->hw_context);
+    if (!kds_hw_ctx) {
+        DRM_ERROR("%s: No valid hw context is open", __func__);
+        ret = -EINVAL;
+        goto out;
+    }
+
+    ret = zocl_del_hw_aie_context(kds_hw_ctx);
+
+out:
+    mutex_unlock(&client->lock);
+    DRM_INFO("++ %s: closed the aie context with rcode=%d\n", __func__, ret);
     return ret;
 }

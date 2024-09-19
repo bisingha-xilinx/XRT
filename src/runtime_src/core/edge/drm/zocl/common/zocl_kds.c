@@ -18,6 +18,7 @@
 #include "kds_core.h"
 #include "kds_ert_table.h"
 #include "xclbin.h"
+#include "zocl_hwctx.h"
 
 #define print_ecmd_info(ecmd) \
 do {\
@@ -313,6 +314,7 @@ void zocl_destroy_client(void *client_hdl)
 	 * release xclbin_id and unlock bitstream if needed.
 	 */
 	zocl_aie_kds_del_graph_context_all(client);
+	//TODO: delete/close all the aie and hw contexts also
 	kds_fini_client(kds, client);
 
 	/* Delete all the existing context associated to this device for this

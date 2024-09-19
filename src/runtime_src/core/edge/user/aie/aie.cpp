@@ -89,8 +89,9 @@ Aie::Aie(const std::shared_ptr<xrt_core::device>& device)
   external_buffer_configs = xrt_core::edge::aie::get_external_buffers(device.get());
 }
 
-Aie::Aie(const std::shared_ptr<xrt_core::device>& device, const zynqaie::hwctx_object* hwctx_obj)
-  : m_device{device}
+Aie::Aie(const std::shared_ptr<xrt_core::device>& device, zynqaie::hwctx_object* hwctx_obj)
+  : m_device{device},
+    m_hwctx{hwctx_obj}
 {
   DevInst = {0};
   devInst = nullptr;
@@ -156,8 +157,7 @@ Aie::~Aie()
 
   if (is_context_set() == true) {
     auto drv = ZYNQ::shim::handleCheck(m_device->get_device_handle());
-    if (auto ret = drv->closeAIEContext())
-      throw xrt_core::error(ret, "Failed to close AIE context");
+    drv->close_hw_aie_context(m_hwctx);
   }
 
 }
@@ -190,13 +190,10 @@ open_context(const xrt_core::device* device, xrt::aie::access_mode am)
 
 void
 Aie::
-open_context(const xrt_core::device* device, const zynqaie::hwctx_object* hwctx_obj, xrt::aie::access_mode am)
+open_context(const xrt_core::device* device, zynqaie::hwctx_object* hwctx_obj, xrt::aie::access_mode am)
 {
   auto drv = ZYNQ::shim::handleCheck(device->get_device_handle());
-
-  //TODO: replace openAIEContext with new function with parameters hwctx_obj, am
-  if (auto ret = drv->openAIEContext(am))
-    throw xrt_core::error(ret, "Fail to open AIE context");
+  drv->open_hw_aie_context(hwctx_obj, am);
 
   access_mode = am;
 }

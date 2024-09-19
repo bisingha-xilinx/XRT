@@ -46,6 +46,9 @@ struct kds_client_hw_ctx {
 	/* To support multiple graph context */
 	struct list_head		graph_ctx_list;
 
+	/* To support AIE ctx */
+	struct zocl_hw_aie_ctx		*aie_ctx;
+
 	/* Per context statistics. Use percpu variable for two reasons
 	 * 1. no lock is need while modifying these counters
 	 * 2. do not need to worry about cache false share

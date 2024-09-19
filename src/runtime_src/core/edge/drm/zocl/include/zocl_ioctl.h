@@ -51,6 +51,10 @@ int zocl_open_graph_ctx_ioctl(struct drm_device *dev, void *data,
 		struct drm_file *filp);
 int zocl_close_graph_ctx_ioctl(struct drm_device *dev, void *data,
 		struct drm_file *filp);
+int zocl_open_aie_ctx_ioctl(struct drm_device *dev, void *data,
+		struct drm_file *filp);
+int zocl_close_aie_ctx_ioctl(struct drm_device *dev, void *data,
+		struct drm_file *filp);
 int zocl_sk_getcmd_ioctl(struct drm_device *dev, void *data,
 		struct drm_file *filp);
 int zocl_sk_create_ioctl(struct drm_device *dev, void *data,

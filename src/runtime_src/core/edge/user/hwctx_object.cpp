@@ -39,6 +39,7 @@ namespace zynqaie {
   hwctx_object::~hwctx_object()
   {
     try {
+      // TODO: make sure AIE context is getting deleted before deleting the hwctx
       m_shim->destroy_hw_context(m_slotidx);
     }
     catch (const std::exception& ex) {

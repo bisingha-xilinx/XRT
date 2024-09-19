@@ -2153,6 +2153,48 @@ closeAIEContext()
   return ioctl(mKernelFD, DRM_IOCTL_ZOCL_CTX, &ctx);
 }
 
+void
+shim::
+open_hw_aie_context(const zynqaie::hwctx_object* hwctx, xrt::aie::access_mode am)
+{
+  if (!hw_context_enable) {
+    // for legacy flow
+    xclLog(XRT_DEBUG, "++ %s: legacy flow\n", __func__);
+    if (openAIEContext(am))
+      throw xrt_core::error("Failed to open AIE context");
+
+    return;
+  }
+  //this is for the multi slot case
+  xclLog(XRT_DEBUG, "++ %s: hwctx flow\n", __func__);
+  auto shared = (hwctx->get_mode() != xrt::hw_context::access_mode::exclusive);
+  unsigned int flags = shared ? ZOCL_CTX_SHARED : ZOCL_CTX_EXCLUSIVE;
+  drm_zocl_open_aie_ctx aie_ctx = {};
+  aie_ctx.hw_context = hwctx->get_slotidx();
+  aie_ctx.flags = flags;
+  if (ioctl(mKernelFD, DRM_IOCTL_ZOCL_OPEN_AIE_CTX, &aie_ctx))
+    throw xrt_core::error("Failed to open AIE context");
+}
+
+void
+shim::
+close_hw_aie_context(const zynqaie::hwctx_object* hwctx)
+{
+  if (!hw_context_enable) {
+    // for legacy flow
+    xclLog(XRT_DEBUG, "++ %s: legacy flow\n", __func__);
+    if (closeAIEContext())
+      throw xrt_core::error("Failed to close AIE context");
+
+    return;
+  }
+  xclLog(XRT_DEBUG, "++ %s: hwctx flow\n", __func__);
+  drm_zocl_close_aie_ctx aie_ctx = {};
+  aie_ctx.hw_context = hwctx->get_slotidx();
+  if (ioctl(mKernelFD, DRM_IOCTL_ZOCL_CLOSE_AIE_CTX, &aie_ctx))
+    throw xrt_core::error("Failed to close aie context");
+}
+
 xrt::aie::access_mode
 shim::
 getAIEAccessMode()

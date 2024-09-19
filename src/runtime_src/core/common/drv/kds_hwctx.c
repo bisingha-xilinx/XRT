@@ -20,6 +20,7 @@
 #include <linux/anon_inodes.h>
 #include "kds_core.h"
 #include "kds_hwctx.h"
+#include "zynq_ioctl.h"
 
 ssize_t show_kds_cuctx_stat_raw(struct kds_sched *kds, char *buf, 
 				size_t buf_size, loff_t offset, uint32_t domain)
@@ -414,6 +415,12 @@ int kds_free_hw_ctx(struct kds_client *client, struct kds_client_hw_ctx *hw_ctx)
 	if(!list_empty(&hw_ctx->graph_ctx_list)) {
 		/* Graph ctx list must me empty to remove a HW context */
 		kds_err(client, "Graph contexts are still open under this HW Context");
+		return -EINVAL;
+	}
+
+	if (hw_ctx->aie_ctx) {
+		/* AIE ctx must be deleted to remove a HW context */
+		kds_err(client, "AIE context is still open under this HW Context");
 		return -EINVAL;
 	}
 	

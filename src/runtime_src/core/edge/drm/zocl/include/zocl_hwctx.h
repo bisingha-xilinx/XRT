@@ -22,4 +22,8 @@ int zocl_open_graph_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_open_graph_ct
 
 int zocl_close_graph_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_close_graph_ctx *drm_graph_ctx, struct drm_file *filp);
 
+int zocl_open_aie_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_open_aie_ctx *drm_aie_ctx, struct drm_file *filp);
+
+int zocl_close_aie_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_close_aie_ctx *drm_aie_ctx, struct drm_file *filp);
+
 #endif
