@@ -370,7 +370,8 @@ zocl_xclbin_read_axlf(struct drm_zocl_dev *zdev, struct drm_zocl_axlf *axlf_obj,
 	zocl_init_mem(zdev, slot);
 
 	/* Createing AIE Partition */
-	zocl_create_aie(zdev, axlf, xclbin, aie_res, hw_gen);
+	if (axlf_obj->hw_context_enable != true)
+		zocl_create_aie(zdev, axlf, xclbin, aie_res, hw_gen);
 
 	/*
 	 * Remember xclbin_uuid for opencontext.

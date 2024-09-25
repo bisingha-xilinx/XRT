@@ -8,7 +8,7 @@
 #include "zocl_aie.h"
 #include <drm/drm_print.h>
 
-int zocl_create_hw_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_create_hw_ctx *drm_hw_ctx, struct drm_file *filp, int slot_id)
+int zocl_create_hw_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_create_hw_ctx *drm_hw_ctx, struct drm_zocl_axlf *axlf_obj, struct drm_file *filp, int slot_id)
 {
     struct kds_client_hw_ctx *kds_hw_ctx = NULL;
     struct drm_zocl_slot *slot = NULL;

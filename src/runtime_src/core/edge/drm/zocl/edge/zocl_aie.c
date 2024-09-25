@@ -245,7 +245,7 @@ zocl_cleanup_aie(struct drm_zocl_dev *zdev)
 }
 
 int 
-zocl_read_aieresbin(struct drm_zocl_dev *zdev, struct axlf* axlf, char __user *xclbin)
+zocl_read_aieresbin(struct device *aie_dev, struct axlf* axlf, char __user *xclbin)
 {
 	struct axlf_section_header *header = NULL;
 	header = xrt_xclbin_get_section_hdr_next(axlf, AIE_RESOURCES_BIN, header);
@@ -270,7 +270,7 @@ zocl_read_aieresbin(struct drm_zocl_dev *zdev, struct axlf* axlf, char __user *x
 		}
 
 		//Call the AIE Driver API 
-		int ret = aie_part_rscmgr_set_static_range(zdev->aie->aie_dev, start_col, num_col, data_portion);
+		int ret = aie_part_rscmgr_set_static_range(aie_dev, start_col, num_col, data_portion);
 		if (ret != 0) {
 			vfree(data_portion);
 			return ret;
@@ -350,7 +350,7 @@ zocl_create_aie(struct drm_zocl_dev *zdev, struct axlf *axlf, char __user *xclbi
 	zdev->aie->aie_dev = aie_partition_request(&req);
 
 	if (!aie_res) {
-		int res = zocl_read_aieresbin(zdev, axlf, xclbin);
+		int res = zocl_read_aieresbin(zdev->aie->aie_dev, axlf, xclbin);
 		if (res)
 			goto done;
 	}
@@ -381,6 +381,113 @@ zocl_create_aie(struct drm_zocl_dev *zdev, struct axlf *axlf, char __user *xclbi
 done:
 	mutex_unlock(&zdev->aie_lock);
 
+	return rval;
+}
+
+int zocl_create_hw_aie(struct drm_zocl_dev *zdev, struct kds_client_hw_ctx *kds_hw_ctx, struct axlf *axlf, char __user *xclbin, void *aie_res, uint8_t hw_gen, uint32_t partition_id)
+{
+	uint64_t offset;
+	uint64_t size;
+	struct aie_partition_req req;
+	int rval = 0;
+	DRM_INFO("++ %s: AIE Device set to gen %d", __func__, hw_gen);
+	rval = xrt_xclbin_section_info(axlf, AIE_METADATA, &offset, &size);
+	if (rval) {
+		DRM_ERROR("%s: Invalid AIE_METADATA\n", __func__);
+		return rval;
+	}
+
+	mutex_lock(&kds_hw_ctx->aie_lock);
+
+	/* AIE is reset and PDI is not laded after reset */
+	if (kds_hw_ctx->aie && kds_hw_ctx->aie->aie_reset) {
+		rval = -ENODEV;
+		DRM_ERROR("%s: PDI is not loaded after AIE reset\n", __func__);
+		goto done;
+	}
+
+	if (!kds_hw_ctx->aie) {
+		kds_hw_ctx->aie = vzalloc(sizeof(struct zocl_aie));
+		if (!kds_hw_ctx->aie) {
+			rval = -ENOMEM;
+			DRM_ERROR("%s: Failed to allocate memory for aie for this hw context\n", __func__);
+			goto done;
+		}
+
+		kds_hw_ctx->aie->err.errors = vzalloc(sizeof(struct aie_error) * ZOCL_AIE_ERROR_CACHE_CAP);
+		if (!kds_hw_ctx->aie->err.errors) {
+			rval = -ENOMEM;
+			vfree(kds_hw_ctx->aie);
+			DRM_ERROR("%s: Failed to allocate memory for aie_error for this hw context\n", __func__);
+			goto done;
+		}
+
+		kds_hw_ctx->aie->err.num = 0;
+		kds_hw_ctx->aie->err.cap = ZOCL_AIE_ERROR_CACHE_CAP;
+	}
+
+	if (!kds_hw_ctx->aie->wq) {
+		kds_hw_ctx->aie->wq = create_singlethread_workqueue("aie-workq");
+		if (!kds_hw_ctx->aie->wq) {
+			rval = -ENOMEM;
+			//TODO: do i need to clear the memory for kds_hw_ctx->aie and kds_hw_ctx->aie->err.errors
+			DRM_ERROR("%s: Failed to create AIE work queue\n", __func__);
+			goto done;
+		}
+	}
+
+	req.partition_id = partition_id;
+	req.uid = 0;
+	req.meta_data = 0;
+
+	if (aie_res)
+		req.meta_data = (u64)aie_res;
+
+	if (kds_hw_ctx->aie->aie_dev) {
+		DRM_INFO("Partition %d already requested\n", req.partition_id);
+		//TODO: check if we neeed to cleanup the kds_hw_ctx->aie and kds_hw_ctx->aie->err.errors
+		goto done;
+	}
+
+	kds_hw_ctx->aie->aie_dev = aie_partition_request(&req);
+
+	if (!aie_res) {
+		//TODO: check if we need this or not
+		int rval = zocl_read_aieresbin(kds_hw_ctx->aie->aie_dev, axlf, xclbin);
+		if (rval)
+			goto done; //TODO: check if we neeed to cleanup the kds_hw_ctx->aie and kds_hw_ctx->aie->err.errors
+	}
+
+	if (IS_ERR(kds_hw_ctx->aie->aie_dev)) {
+		rval = PTR_ERR(kds_hw_ctx->aie->aie_dev);
+		DRM_ERROR("%s: Failed to request AIE partition %d with rcode %d\n", __func__, req.partition_id, rval);
+		//TODO: check if we neeed to cleanup the kds_hw_ctx->aie and kds_hw_ctx->aie->err.errors
+		goto done;
+	}
+
+	kds_hw_ctx->aie->partition_id = req.partition_id;
+	kds_hw_ctx->aie->uid = req.uid;
+
+	/* Register AIE error callback. Only for AIE-1 gen */
+	if (hw_gen == 1) {
+		// TODO: enable the callback properly. enable zocl_hw_aie_error_cb
+		//rval = aie_register_error_notification(kds_hw_ctx->aie->aie_dev, zocl_hw_aie_error_cb, kds_hw_ctx);
+	}
+
+	mutex_unlock(&kds_hw_ctx->aie_lock);
+
+	rval = zocl_init_hw_aie(kds_hw_ctx);
+	if (rval) {
+		DRM_ERROR("%s: Failed to init AIE\n", __func__);
+		return rval;
+	}
+
+	DRM_INFO("AIE create successfully finished\n");
+	return 0;
+
+done:
+	mutex_unlock(&kds_hw_ctx->aie_lock);
+	DRM_ERROR("%s: Failed to create aie for this hw context\n", __func__);
 	return rval;
 }
 
@@ -841,6 +948,25 @@ zocl_init_aie(struct drm_zocl_dev *zdev)
 	init_waitqueue_head(&aie->aie_wait_queue);
 	aie->cmd_inprogress = NULL;
 	zdev->aie_information = aie;
+
+	return 0;
+}
+
+int
+zocl_init_hw_aie(struct kds_client_hw_ctx *kds_hw_ctx)
+{
+	struct aie_info *aie_info;
+	aie_info = vzalloc(sizeof(struct aie_info));
+	if (!aie_info) {
+		kds_hw_ctx->aie_information = NULL;
+		return -ENOMEM;
+	}
+
+	mutex_init(&aie_info->aie_lock);
+	INIT_LIST_HEAD(&aie_info->aie_cmd_list);
+	init_waitqueue_head(&aie_info->aie_wait_queue);
+	aie_info->cmd_inprogress = NULL;
+	kds_hw_ctx->aie_information = aie_info;
 
 	return 0;
 }

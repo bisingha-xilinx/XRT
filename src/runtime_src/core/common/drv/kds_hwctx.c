@@ -387,6 +387,7 @@ kds_alloc_hw_ctx(struct kds_client *client, uuid_t *xclbin_id, uint32_t slot_id)
 	hw_ctx->hw_ctx_idx = client->next_hw_ctx_id;
 	hw_ctx->slot_idx = slot_id;
 	hw_ctx->xclbin_id = xclbin_id;
+	mutex_init(&hw_ctx->aie_lock);
 	INIT_LIST_HEAD(&hw_ctx->cu_ctx_list);
 	INIT_LIST_HEAD(&hw_ctx->graph_ctx_list);
         list_add_tail(&hw_ctx->link, &client->hw_ctx_list);
@@ -417,6 +418,7 @@ int kds_free_hw_ctx(struct kds_client *client, struct kds_client_hw_ctx *hw_ctx)
 		return -EINVAL;
 	}
 	
+	mutex_destroy(&hw_ctx->aie_lock);
 	free_percpu(hw_ctx->stats);	
 	list_del(&hw_ctx->link);
 	vfree(hw_ctx); 

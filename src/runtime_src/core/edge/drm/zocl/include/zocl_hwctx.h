@@ -8,7 +8,7 @@
 #include "zocl_xclbin.h"
 
 
-int zocl_create_hw_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_create_hw_ctx *drm_hw_ctx, struct drm_file *filp, int slot_id);
+int zocl_create_hw_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_create_hw_ctx *drm_hw_ctx, struct drm_zocl_axlf *axlf_obj, struct drm_file *filp, int slot_id);
 
 int zocl_destroy_hw_ctx(struct drm_zocl_dev *zdev, struct drm_zocl_destroy_hw_ctx *drm_hw_ctx, struct drm_file *filp);
 

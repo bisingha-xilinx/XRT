@@ -738,6 +738,7 @@ xclLoadAxlf(const axlf *buffer)
       .za_dtbo_path_len = static_cast<unsigned int>(dtbo_path.length()),
       .hw_gen = hw_gen,
       .partition_id = partition_id,
+      .hw_context_enable = hw_context_enable,
     };
 
   axlf_obj.kds_cfg.polling = xrt_core::config::get_ert_polling();
@@ -1230,6 +1231,7 @@ int shim::prepare_hw_axlf(const axlf *buffer, struct drm_zocl_axlf *axlf_obj)
   axlf_obj->za_dtbo_path_len = static_cast<unsigned int>(dtbo_path.length()),
   axlf_obj->hw_gen = hw_gen,
   axlf_obj->partition_id = partition_id,
+  axlf_obj->hw_context_enable = hw_context_enable;
   axlf_obj->kds_cfg.polling = xrt_core::config::get_ert_polling();
 
   std::vector<char> krnl_binary;

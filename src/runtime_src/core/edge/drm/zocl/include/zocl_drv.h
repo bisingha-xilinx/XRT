@@ -267,6 +267,8 @@ void zocl_clear_mem_slot(struct drm_zocl_dev *zdev, u32 slot_idx);
 int zocl_cleanup_aie(struct drm_zocl_dev *zdev);
 int zocl_create_aie(struct drm_zocl_dev *zdev, struct axlf *axlf, char __user *xclbin,
 		void *aie_res, uint8_t hw_gen);
+int zocl_create_hw_aie(struct drm_zocl_dev *zdev, struct kds_client_hw_ctx *kds_hw_ctx, struct axlf *axlf, char __user *xclbin,
+		void *aie_res, uint8_t hw_gen, uint32_t partition_id);
 void zocl_destroy_aie(struct drm_zocl_dev *zdev);
 int zocl_aie_request_part_fd(struct drm_zocl_dev *zdev, void *data);
 int zocl_aie_reset(struct drm_zocl_dev *zdev);

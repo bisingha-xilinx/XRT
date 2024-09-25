@@ -489,6 +489,7 @@ struct drm_zocl_axlf {
 	uint8_t		        hw_gen;
 	struct drm_zocl_kds	kds_cfg;
 	uint32_t		partition_id;
+	bool			hw_context_enable;
 };
 
 /**

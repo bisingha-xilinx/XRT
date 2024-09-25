@@ -56,7 +56,7 @@ int zocl_create_hw_ctx_ioctl(struct drm_device *dev, void *data, struct drm_file
 		return ret;
 	}
 
-	return zocl_create_hw_ctx(zdev, drm_hw_ctx, filp, slot_id);
+	return zocl_create_hw_ctx(zdev, drm_hw_ctx, &axlf_obj, filp, slot_id);
 }
 
 /*

@@ -169,5 +169,6 @@ struct aie_info_cmd {
 };
 
 int zocl_init_aie(struct drm_zocl_dev *zdev);
+int zocl_init_hw_aie(struct kds_client_hw_ctx *kds_hw_ctx);
 
 #endif /* _ZOCL_AIE_H_ */
