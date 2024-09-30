@@ -112,6 +112,8 @@ get_aiecompiler_options(const pt::ptree& aie_meta)
 static uint8_t
 get_start_col(const pt::ptree& aie_meta)
 {
+  std::cout<<" +++ "<<__func__ <<" ..returning 0"<<std::endl;
+  return 0;
   auto start_col = 0;
   auto overlay_start_cols = aie_meta.get_child_optional("aie_metadata.driver_config.partition_overlay_start_cols");
   if (overlay_start_cols && !overlay_start_cols->empty())

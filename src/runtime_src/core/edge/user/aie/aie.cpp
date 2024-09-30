@@ -49,10 +49,15 @@ Aie::Aie(const std::shared_ptr<xrt_core::device>& device)
       driver_config.aie_tile_row_start,
       driver_config.aie_tile_num_rows);
 
+  AieRC rc1;
+  if ((rc1 = XAie_SetupPartitionConfig(&DevInst, (driver_config.base_address + (8 << 23)), 8, 5)) != XAIE_OK)
+    throw xrt_core::error(-EINVAL, "Failed to setup AIE Partition: " + std::to_string(rc1));
+
   auto drv = ZYNQ::shim::handleCheck(device->get_device_handle());
 
   /* TODO get partition id and uid from XCLBIN or PDI */
-  uint32_t partition_id = 1;
+  uint32_t partition_id = xrt_core::edge::aie::get_partition_id(device.get());
+  std::cout<< "+++ with device .. partition_id = " <<partition_id <<std::endl;
   uint32_t uid = 0;
   drm_zocl_aie_fd aiefd = { partition_id, uid, 0 };
   int ret = drv->getPartitionFd(aiefd);
@@ -107,10 +112,15 @@ Aie::Aie(const std::shared_ptr<xrt_core::device>& device, const zynqaie::hwctx_o
       driver_config.aie_tile_row_start,
       driver_config.aie_tile_num_rows);
 
+  AieRC rc1;
+  if ((rc1 = XAie_SetupPartitionConfig(&DevInst, (driver_config.base_address + (8 << 23)), 8, 5)) != XAIE_OK)
+    throw xrt_core::error(-EINVAL, "Failed to setup AIE Partition: " + std::to_string(rc1));
+
   auto drv = ZYNQ::shim::handleCheck(device->get_device_handle());
 
   /* TODO get partition id and uid from XCLBIN or PDI */
-  uint32_t partition_id = 1;
+  uint32_t partition_id = xrt_core::edge::aie::get_partition_id(device.get());
+  std::cout<< "+++ with hwctx ... partition_id = " <<partition_id <<std::endl;
   uint32_t uid = 0;
   drm_zocl_aie_fd aiefd = { partition_id, uid, 0 };
 

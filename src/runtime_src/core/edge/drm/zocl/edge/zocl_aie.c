@@ -270,7 +270,8 @@ zocl_read_aieresbin(struct drm_zocl_dev *zdev, struct axlf* axlf, char __user *x
 		}
 
 		//Call the AIE Driver API 
-		int ret = aie_part_rscmgr_set_static_range(zdev->aie->aie_dev, start_col, num_col, data_portion);
+		DRM_INFO("+++ %s: calling aie_part_rscmgr_set_static_range() with startcol=0 and num_col=%d\n", __func__, num_col);
+		int ret = aie_part_rscmgr_set_static_range(zdev->aie->aie_dev, 0, num_col, data_portion);
 		if (ret != 0) {
 			vfree(data_portion);
 			return ret;
@@ -283,7 +284,7 @@ zocl_read_aieresbin(struct drm_zocl_dev *zdev, struct axlf* axlf, char __user *x
 
 
 int
-zocl_create_aie(struct drm_zocl_dev *zdev, struct axlf *axlf, char __user *xclbin, void *aie_res, uint8_t hw_gen)
+zocl_create_aie(struct drm_zocl_dev *zdev, struct axlf *axlf, char __user *xclbin, void *aie_res, uint8_t hw_gen, uint32_t partition_id)
 {
 	uint64_t offset;
 	uint64_t size;
@@ -334,7 +335,7 @@ zocl_create_aie(struct drm_zocl_dev *zdev, struct axlf *axlf, char __user *xclbi
 	}
 
 	/* TODO figure out the partition id and uid from xclbin or PDI */
-	req.partition_id = 1;
+	req.partition_id = partition_id;
 	req.uid = 0;
 	req.meta_data = 0;
 
@@ -346,7 +347,7 @@ zocl_create_aie(struct drm_zocl_dev *zdev, struct axlf *axlf, char __user *xclbi
 		    req.partition_id);
 		goto done;
 	}
-
+	DRM_INFO("++ %s: calling aie_parition_request() with req.partition_id = %d", __func__, req.partition_id);
 	zdev->aie->aie_dev = aie_partition_request(&req);
 
 	if (!aie_res) {
