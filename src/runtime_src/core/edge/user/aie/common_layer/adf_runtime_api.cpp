@@ -439,58 +439,100 @@ err_code graph_api::update(const rtp_config* pRTPConfig, const void* pValue, siz
     int driverStatus = AieRC::XAIE_OK; //0
 
     // sync ports acquire selector lock for WRITE, async ports acquire selector lock unconditionally
-    if (pRTPConfig->hasLock && bAcquireLock && pRTPConfig->blocking)
+    if (pRTPConfig->hasLock && bAcquireLock && pRTPConfig->blocking) {
+        std::cout<<"++ "<<__func__<<":"<<__LINE__<<" calling XAie_LockAcquire()"<<std::endl;
         driverStatus |= XAie_LockAcquire(config->get_dev(), selectorTile, XAie_LockInit(pRTPConfig->selectorLockId, selAcqVal), LOCK_TIMEOUT);
+        if (driverStatus != AieRC::XAIE_OK)
+            std::cout<<"++ "<<__func__<<":"<<__LINE__<<" XAie_LockAcquire() failed"<<std::endl;
+    }
+
 
     // Read the selector value
     u32 selector;
+    std::cout<<"++ "<<__func__<<":"<<__LINE__<<" calling XAie_DataMemRdWord()"<<std::endl;
     driverStatus |= XAie_DataMemRdWord(config->get_dev(), selectorTile, pRTPConfig->selectorAddr, ((u32*)&selector));
+    if (driverStatus != AieRC::XAIE_OK)
+        std::cout<<"++ "<<__func__<<":"<<__LINE__<<" XAie_DataMemRdWord() failed"<<std::endl;
     selector = 1 - selector;
 
     if (selector == 1) //pong
     {
+        std::cout<<"++ "<<__func__<<":"<<__LINE__<<" in pong case --"<<std::endl;
         // sync ports acquire buffer lock for WRITE, async ports acquire buffer lock unconditionally
-        if (pRTPConfig->hasLock && bAcquireLock)
+        if (pRTPConfig->hasLock && bAcquireLock) {
+            std::cout<<"++ "<<__func__<<":"<<__LINE__<<" calling XAie_LockAcquire()"<<std::endl;
             driverStatus |= XAie_LockAcquire(config->get_dev(), pongTile, XAie_LockInit(pRTPConfig->pongLockId, bufAcqVal), LOCK_TIMEOUT);
+            if (driverStatus != AieRC::XAIE_OK)
+                std::cout<<"++ "<<__func__<<":"<<__LINE__<<" XAie_LockAcquire() failed"<<std::endl;
+        }
 
+        std::cout<<"++ "<<__func__<<":"<<__LINE__<<" calling XAie_DataMemBlockWrite()"<<std::endl;
         driverStatus |= XAie_DataMemBlockWrite(config->get_dev(), pongTile, pRTPConfig->pongAddr, pValue, numBytes);
+        if (driverStatus != AieRC::XAIE_OK)
+            std::cout<<"++ "<<__func__<<":"<<__LINE__<<" XAie_DataMemBlockWrite() failed"<<std::endl;
     }
     else //ping
     {
+        std::cout<<"++ "<<__func__<<":"<<__LINE__<<" in ping case --"<<std::endl;
         // sync ports acquire buffer lock for WRITE, async ports acquire buffer lock unconditionally
         if (pRTPConfig->hasLock && bAcquireLock)
             driverStatus |= XAie_LockAcquire(config->get_dev(), pingTile, XAie_LockInit(pRTPConfig->pingLockId, bufAcqVal), LOCK_TIMEOUT);
 
         driverStatus |= XAie_DataMemBlockWrite(config->get_dev(), pingTile, pRTPConfig->pingAddr, pValue, numBytes);
     }
+    std::cout<<"++ "<<__func__<<":"<<__LINE__<<" came out of the pong/ping check"<<std::endl;
 
-    if (pRTPConfig->hasLock && bAcquireLock && !pRTPConfig->blocking)
+    if (pRTPConfig->hasLock && bAcquireLock && !pRTPConfig->blocking) {
+        std::cout<<"++ "<<__func__<<":"<<__LINE__<<" calling XAie_LockAcquire()"<<std::endl;
         driverStatus |= XAie_LockAcquire(config->get_dev(), selectorTile, XAie_LockInit(pRTPConfig->selectorLockId, selAcqVal), LOCK_TIMEOUT);
+        if (driverStatus != AieRC::XAIE_OK)
+                std::cout<<"++ "<<__func__<<":"<<__LINE__<<" XAie_LockAcquire() failed"<<std::endl;
+    }
     // write the new selector value
+    std::cout<<"++ "<<__func__<<":"<<__LINE__<<" calling XAie_DataMemWrWord()"<<std::endl;
     driverStatus |= XAie_DataMemWrWord(config->get_dev(), selectorTile, pRTPConfig->selectorAddr, selector);
+    if (driverStatus != AieRC::XAIE_OK)
+                std::cout<<"++ "<<__func__<<":"<<__LINE__<<" XAie_DataMemWrWord() failed"<<std::endl;
 
+    std::cout<<"++ "<<__func__<<":"<<__LINE__<<" checking if (pRTPConfig->hasLock) case"<<std::endl;
     if (pRTPConfig->hasLock)
     {
+        std::cout<<"++ "<<__func__<<":"<<__LINE__<<" (pRTPConfig->hasLock) is true"<<std::endl;
         // release selector and buffer locks for ME
         // still need to release async RTP selector lock FOR_READ even when the graph is suspended;
         // otherwise, the ME side may deadlock in acquiring selector lock FOR_READ
-        if (relSelLock)
+        if (relSelLock) {
+            std::cout<<"++ "<<__func__<<":"<<__LINE__<<" calling XAie_LockRelease()"<<std::endl;
             driverStatus |= XAie_LockRelease(config->get_dev(), selectorTile, XAie_LockInit(pRTPConfig->selectorLockId, releaseVal), LOCK_TIMEOUT);
+            if (driverStatus != AieRC::XAIE_OK)
+                std::cout<<"++ "<<__func__<<":"<<__LINE__<<" XAie_LockRelease() failed"<<std::endl;
+        }
 
         // still need to release async RTP buffer lock FOR_READ even when the graph is suspended;
         // otherwise, the AIE side may deadlock in acquiring buffer lock FOR_READ
         // (note that there is one selector lock but two buffer locks)
         if (relBufLock)
         {
-            if (selector == 1) //pong
+            if (selector == 1) { //pong
+                std::cout<<"++ "<<__func__<<":"<<__LINE__<<" in pong case: calling XAie_LockRelease()"<<std::endl;
                 driverStatus |= XAie_LockRelease(config->get_dev(), pongTile, XAie_LockInit(pRTPConfig->pongLockId, releaseVal), LOCK_TIMEOUT);
-            else //ping
+                if (driverStatus != AieRC::XAIE_OK)
+                    std::cout<<"++ "<<__func__<<":"<<__LINE__<<" XAie_LockRelease() failed"<<std::endl;
+            }
+
+            else { //ping
+                std::cout<<"++ "<<__func__<<":"<<__LINE__<<" in ping case: calling XAie_LockRelease()"<<std::endl;
                 driverStatus |= XAie_LockRelease(config->get_dev(), pingTile, XAie_LockInit(pRTPConfig->pingLockId, releaseVal), LOCK_TIMEOUT);
+                if (driverStatus != AieRC::XAIE_OK)
+                    std::cout<<"++ "<<__func__<<":"<<__LINE__<<" XAie_LockRelease() failed"<<std::endl;
+            }
         }
     }
 
-    if (driverStatus != AieRC::XAIE_OK)
+    if (driverStatus != AieRC::XAIE_OK) {
+        std::cout<<"++ "<<__func__<<":"<<__LINE__<<" ERROR: adf::graph::update: XAieTile_LockAcquire timeout or AIE driver error."<<std::endl;
         return errorMsg(err_code::aie_driver_error, "ERROR: adf::graph::update: XAieTile_LockAcquire timeout or AIE driver error.");
+    }
 
     return err_code::ok;
 }
