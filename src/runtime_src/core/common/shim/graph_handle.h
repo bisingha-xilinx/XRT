@@ -38,6 +38,9 @@ public:
   update_graph_rtp(const char* port, const char* buffer, size_t size) = 0;
 
   virtual void
+  async_update_graph_rtp(const char* port, const char* buffer, size_t size) = 0;
+
+  virtual void
   read_graph_rtp(const char* port, char* buffer, size_t size) = 0;
 };
 

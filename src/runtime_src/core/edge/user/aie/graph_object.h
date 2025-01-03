@@ -94,6 +94,9 @@ namespace zynqaie {
     update_graph_rtp(const char* port, const char* buffer, size_t size) override;
 
     void
+    async_update_graph_rtp(const char* port, const char* buffer, size_t size) override;
+
+    void
     read_graph_rtp(const char* port, char* buffer, size_t size) override;
   }; // graph_object
 }

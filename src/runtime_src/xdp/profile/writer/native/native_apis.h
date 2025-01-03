@@ -72,6 +72,7 @@ constexpr const char* APIs[] = {
   "xrt::graph::resume",
   "xrt::graph::end",
   "xrt::graph::update_port",
+  "xrt::graph::async_update_port",
   "xrt::graph::read_port",
   "xrt::run::run",
   "xrt::run::start",
