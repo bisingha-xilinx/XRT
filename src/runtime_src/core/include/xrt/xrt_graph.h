@@ -213,6 +213,21 @@ public:
   }
 
   /**
+   * async_update() - Update graph RTPs asynchronously.
+   *
+   * @param port_name
+   *  Hierarchical name of RTP port.
+   * @param arg
+   *  The argument to set.
+   */
+  template<typename ArgType>
+  void
+  async_update(const std::string& port_name, ArgType&& arg)
+  {
+    async_update_port(port_name, &arg, sizeof(arg));
+  }
+
+  /**
    * read() - Read graph Run Time Parameters value.
    *
    * @param port_name
@@ -232,6 +247,9 @@ private:
 
   void
   update_port(const std::string& port_name, const void* value, size_t bytes);
+
+  void
+  async_update_port(const std::string& port_name, const void* value, size_t bytes);
 
   void
   read_port(const std::string& port_name, void* value, size_t bytes);

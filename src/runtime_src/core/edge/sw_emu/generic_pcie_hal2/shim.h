@@ -348,6 +348,12 @@ namespace xclswemuhal2 {
       }
 
       void
+      async_update_graph_rtp(const char* port, const char* buffer, size_t size) override
+      {
+        throw xrt_core::system_error(-EINVAL, "Not supported for sw emu");
+      }
+
+      void
       read_graph_rtp(const char* port, char* buffer, size_t size) override
       {
         if (auto ret = xclGraphReadRTP(m_xclGraphHandle, port, buffer, size))

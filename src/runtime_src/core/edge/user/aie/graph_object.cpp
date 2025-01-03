@@ -289,6 +289,23 @@ graph_object::update_graph_rtp(const char* port, const char* buffer, size_t size
 }
 
 void
+graph_object::async_update_graph_rtp(const char* port, const char* buffer, size_t size)
+{
+  auto it = rtps.find(port);
+  if (it == rtps.end())
+    throw xrt_core::error(-EINVAL, "Can't update graph '" + name + "': RTP port '" + port + "' not found");
+  auto& rtp = it->second;
+
+  if (access_mode == xrt::graph::access_mode::shared)  //DOUBT: why we're checking if its asyncrhonous rtp.isAsync
+    throw xrt_core::error(-EPERM, "Shared context can not update sync RTP");
+
+  if (rtp.isPL)
+    throw xrt_core::error(-EINVAL, "Can't update graph '" + name + "': RTP port '" + port + "' is not AIE RTP");
+
+  graph_api_obj->update(&rtp, (const void*)buffer, size);
+}
+
+void
 graph_object::read_graph_rtp(const char* port, char* buffer, size_t size)
 {
   auto it = rtps.find(port);

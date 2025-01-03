@@ -112,6 +112,12 @@ public:
   }
 
   void
+  async_update_rtp(const char* port, const char* buffer, size_t size)
+  {
+    m_graphHandle->async_update_graph_rtp(port, buffer, size);
+  }
+
+  void
   read_rtp(const char* port, char* buffer, size_t size)
   {
     m_graphHandle->read_graph_rtp(port, buffer, size);
@@ -415,6 +421,15 @@ update_port(const std::string& port_name, const void* value, size_t bytes)
 {
   xdp::native::profiling_wrapper("xrt::graph::update_port", [this, port_name, value, bytes]{
     handle->update_rtp(port_name.c_str(), reinterpret_cast<const char*>(value), bytes);
+  });
+}
+
+void
+graph::
+async_update_port(const std::string& port_name, const void* value, size_t bytes)
+{
+  xdp::native::profiling_wrapper("xrt::graph::async_update_port", [this, port_name, value, bytes]{
+    handle->async_update_rtp(port_name.c_str(), reinterpret_cast<const char*>(value), bytes);
   });
 }
 
