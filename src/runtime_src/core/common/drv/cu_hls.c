@@ -57,7 +57,7 @@ struct xrt_cu_hls {
 static inline u32 cu_read32(struct xrt_cu_hls *cu, u32 reg)
 {
 	u32 ret;
-
+	printk(KERN_INFO "[bs]: %s: calling ioread32()\n", __func__);
 	ret = ioread32(cu->vaddr + reg);
 	return ret;
 }
@@ -485,12 +485,17 @@ int xrt_cu_hls_init(struct xrt_cu *xcu)
 	/* TODO: add comment why uses res[0] */
 	res = xcu->res[0];
 	size = res->end - res->start + 1;
+	printk(KERN_INFO "[bs]: %s: calling ioremap_nocache() with res->start=0x%zx size=%d\n", __func__, res->start, size);
 	core->vaddr = ioremap_nocache(res->start, size);
 	if (!core->vaddr) {
 		err = -ENOMEM;
 		xcu_err(xcu, "Map CU register failed");
 		goto err;
 	}
+	printk(KERN_INFO "[bs]: %s: after ioremap_nocache() the core->vaddr=0x%zx\n", __func__, core->vaddr);
+	printk("[bs]: %s: Before memset to core->vaddr\n", __func__);
+	memset(core->vaddr, 0x0, 32);
+	printk("[bs]: %s: After memset to core->vaddr\n", __func__);
 
 	core->max_credits = 1;
 	core->credits = core->max_credits;
@@ -516,7 +521,7 @@ int xrt_cu_hls_init(struct xrt_cu *xcu)
 	 */
 	if (xcu->info.protocol == CTRL_NONE)
 		return  0;
-
+	printk(KERN_INFO "[bs]: %s: calling cu_read32()\n", __func__);
 	xcu->status = cu_read32(core, CTRL);
 	err = xrt_cu_init(xcu);
 	if (err)

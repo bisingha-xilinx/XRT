@@ -407,6 +407,7 @@ static int cu_probe(struct platform_device *pdev)
 
 	switch (info->model) {
 	case XCU_HLS:
+		printk(KERN_INFO "[bs]: %s: calling xrt_cu_hls_init()\n", __func__);
 		err = xrt_cu_hls_init(&zcu->base);
 		break;
 	case XCU_FA:
