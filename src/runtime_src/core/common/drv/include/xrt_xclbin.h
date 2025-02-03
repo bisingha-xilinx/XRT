@@ -60,7 +60,7 @@ xrt_xclbin_get_section_hdr(const struct axlf *xclbin, enum axlf_section_kind kin
 
 int
 xrt_xclbin_check_section_hdr(const struct axlf_section_header *header,
-	uint64_t xclbin_len);
+	uint64_t xclbin_len, enum axlf_section_kind kind);
 
 int
 xrt_xclbin_section_info(const struct axlf *xclbin, enum axlf_section_kind kind,

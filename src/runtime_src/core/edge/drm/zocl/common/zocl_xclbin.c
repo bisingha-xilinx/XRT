@@ -11,7 +11,7 @@
  * This file is dual-licensed; you may select either the GNU General Public
  * License version 2 or Apache License, Version 2.0.
  */
-
+#include <linux/kernel.h>
 #include <linux/fpga/fpga-mgr.h>
 #include <linux/of.h>
 #include "zocl_drv.h"
@@ -215,7 +215,7 @@ zocl_read_sect(enum axlf_section_kind kind, void *sect,
 	uint64_t size;
 	void **sect_tmp = (void *)sect;
 	int err = 0;
-
+	printk(KERN_INFO "[bs]: %s: calling xrt_xclbin_section_info() for kind %s\n", __func__, xrt_xclbin_kind_to_string(kind));
 	err = xrt_xclbin_section_info(axlf_full, kind, &offset, &size);
 	if (err) {
 		DRM_INFO("skip kind %d(%s) return code: %d", kind,

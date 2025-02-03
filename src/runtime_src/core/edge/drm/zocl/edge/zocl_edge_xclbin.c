@@ -175,7 +175,7 @@ zocl_xclbin_read_axlf(struct drm_zocl_dev *zdev, struct drm_zocl_axlf *axlf_obj,
 	 * Read AIE_RESOURCES section. aie_res will be NULL if there is no
 	 * such a section.
 	 */
-
+	printk(KERN_INFO "[bs]: %s: calling zocl_read_sect() for AIE_RESOURCES\n", __func__);
 	zocl_read_sect(AIE_RESOURCES, &aie_res, axlf, xclbin);
 
 	/* 1. We locked &zdev->slot_xclbin_lock so that no new contexts

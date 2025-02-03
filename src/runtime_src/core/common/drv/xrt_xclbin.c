@@ -9,7 +9,7 @@
  * This file is dual-licensed; you may select either the GNU General Public
  * License version 2 or Apache License, Version 2.0.
  */
-
+#include <linux/kernel.h>
 #include <asm/errno.h>
 #include <linux/vmalloc.h>
 #include "xclbin.h"
@@ -204,29 +204,46 @@ xrt_xclbin_get_section_hdr(const struct axlf *xclbin, enum axlf_section_kind kin
 	int i = 0;
 
 	/* Sanity check. */
-	if (xclbin->m_header.m_numSections > XCLBIN_MAX_NUM_SECTION)
+	if (xclbin->m_header.m_numSections > XCLBIN_MAX_NUM_SECTION){
+		printk(KERN_INFO "[bs]: %s: sanity check is failing for kind %s\n", __func__, xrt_xclbin_kind_to_string(kind));
 		return NULL;
-
+	}
+	printk(KERN_INFO "[bs]: %s: total_sections=%d looking for %s\n", __func__, xclbin->m_header.m_numSections, xrt_xclbin_kind_to_string(kind));
 	for (i = 0; i < xclbin->m_header.m_numSections; i++) {
+		printk(KERN_INFO "[bs]: %s: i=%d section=%s\n", __func__, i, xrt_xclbin_kind_to_string(kind));
 		if (xclbin->m_sections[i].m_sectionKind == kind) {
 			int err = 0;
-			err = xrt_xclbin_check_section_hdr(&(xclbin->m_sections[i]), xclbin->m_header.m_length);
-			if (err)
+			printk(KERN_INFO "[bs]: %s: found section header of kind %s calling to check the header\n", __func__, xrt_xclbin_kind_to_string(kind));
+			err = xrt_xclbin_check_section_hdr(&(xclbin->m_sections[i]), xclbin->m_header.m_length, kind);
+			if (err){
+				printk(KERN_INFO "[bs]: %s: section header checking failed of kind %s\n", __func__, xrt_xclbin_kind_to_string(kind));
 				return NULL;
+			}
+			printk(KERN_INFO "[bs]: %s: returning header of kind %s \n", __func__, xrt_xclbin_kind_to_string(kind));
 			return &xclbin->m_sections[i];
 		}
 	}
-
+	printk(KERN_INFO "[bs]: %s: No section header of kind %s\n", __func__, xrt_xclbin_kind_to_string(kind));
 	return NULL;
 }
 
 int
 xrt_xclbin_check_section_hdr(const struct axlf_section_header *header,
-	uint64_t xclbin_len)
+	uint64_t xclbin_len, enum axlf_section_kind kind)
 {
-	return ((header->m_sectionOffset + header->m_sectionSize < header->m_sectionOffset)
-	            || (header->m_sectionOffset + header->m_sectionSize > xclbin_len)) ?
-		-EINVAL : 0;
+	int ret = 0;
+	printk(KERN_INFO "[bs]: %s: checking header offset and length of kind %s\n", __func__, xrt_xclbin_kind_to_string(kind));
+	if (header->m_sectionOffset + header->m_sectionSize < header->m_sectionOffset){
+	       printk(KERN_INFO "[bs]: %s: header offset mismatch of kind %s\n", __func__, xrt_xclbin_kind_to_string(kind));
+	       ret = -EINVAL;
+	}
+   	       
+	if (header->m_sectionOffset + header->m_sectionSize > xclbin_len) {
+		printk(KERN_INFO "[bs]: %s: header length mismatch of kind %s\n", __func__, xrt_xclbin_kind_to_string(kind));
+		ret = -EINVAL;
+	}
+
+	return ret;
 }
 
 int
@@ -238,14 +255,18 @@ xrt_xclbin_section_info(const struct axlf *xclbin, enum axlf_section_kind kind,
 	int err = 0;
 
 	memHeader = xrt_xclbin_get_section_hdr(xclbin, kind);
-	if (!memHeader)
+	if (!memHeader){
+		printk(KERN_INFO "[bs]: %s: invalid memHeader of kind %s\n", __func__, xrt_xclbin_kind_to_string(kind));
 		return -EINVAL;
+	}
 
 	xclbin_len = xclbin->m_header.m_length;
-	err = xrt_xclbin_check_section_hdr(memHeader, xclbin_len);
-	if (err)
+	err = xrt_xclbin_check_section_hdr(memHeader, xclbin_len, kind);
+	if (err){
+		printk(KERN_INFO "[bs]: %s: invalid header length of kind %s\n", __func__, xrt_xclbin_kind_to_string(kind));
 		return err;
-
+	}
+	printk(KERN_INFO "[bs]: %s: valid offset and size of kind %s\n", __func__, xrt_xclbin_kind_to_string(kind));
 	*offset = memHeader->m_sectionOffset;
 	*size = memHeader->m_sectionSize;
 
