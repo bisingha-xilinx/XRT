@@ -359,6 +359,12 @@ namespace xclswemuhal2 {
         if (auto ret = xclGraphReadRTP(m_xclGraphHandle, port, buffer, size))
           throw xrt_core::system_error(ret, "fail to read graph rtp");
       }
+
+      void
+      async_read_graph_rtp(const char* port, char* buffer, size_t size) override
+      {
+        throw xrt_core::system_error(-EINVAL, "Not supported for sw emu");
+      }
     }; // graph_object
   private:
       // This is a hidden signature of this class and helps in preventing

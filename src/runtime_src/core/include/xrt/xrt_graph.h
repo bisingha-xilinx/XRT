@@ -242,6 +242,21 @@ public:
     read_port(port_name, &arg, sizeof(arg));
   }
 
+  /**
+  * async_read() - Read graph RTPs asynchronously
+  *
+  * @param port_name
+  *  hierarchical name of RTP port.
+  * @param arg
+  *  The RTP valie is written to.
+   */
+  template<typename ArgType>
+  void
+  async_read(const std::string& port_name, ArgType& arg)
+  {
+    async_read_port(port_name, &arg, sizeof(arg));
+  }
+
 private:
   std::shared_ptr<graph_impl> handle;
 
@@ -253,6 +268,9 @@ private:
 
   void
   read_port(const std::string& port_name, void* value, size_t bytes);
+
+  void
+  async_read_port(const std::string& port_name, void* value, size_t bytes);
 };
 
 } // namespace xrt

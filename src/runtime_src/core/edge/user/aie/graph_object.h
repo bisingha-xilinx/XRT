@@ -98,6 +98,9 @@ namespace zynqaie {
 
     void
     read_graph_rtp(const char* port, char* buffer, size_t size) override;
+
+    void
+    async_read_graph_rtp(const char* port, char* buffer, size_t size) override;
   }; // graph_object
 }
 #endif  //_ZYNQ_GRAPH_OBJECT_H_

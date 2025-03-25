@@ -122,6 +122,12 @@ public:
   {
     m_graphHandle->read_graph_rtp(port, buffer, size);
   }
+
+  void
+  async_read_rtp(const char* port, char* buffer, size_t size)
+  {
+    m_graphHandle->async_read_graph_rtp(port, buffer, size);
+  }
 };
 
 }
@@ -439,6 +445,15 @@ read_port(const std::string& port_name, void* value, size_t bytes)
 {
   xdp::native::profiling_wrapper("xrt::graph::read_port", [this, port_name, value, bytes]{
     handle->read_rtp(port_name.c_str(), reinterpret_cast<char *>(value), bytes);
+  });
+}
+
+void
+graph::
+async_read_port(const std::string& port_name, void* value, size_t bytes)
+{
+  xdp::native::profiling_wrapper("xrt::graph::async_read_port", [this, port_name, value, bytes]{
+    handle->async_read_rtp(port_name.c_str(), reinterpret_cast<char *>(value), bytes);
   });
 }
 

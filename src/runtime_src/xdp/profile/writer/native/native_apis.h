@@ -74,6 +74,7 @@ constexpr const char* APIs[] = {
   "xrt::graph::update_port",
   "xrt::graph::async_update_port",
   "xrt::graph::read_port",
+  "xrt::graph::async_read_port",
   "xrt::run::run",
   "xrt::run::start",
   "xrt::run::wait",

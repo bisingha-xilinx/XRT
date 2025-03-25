@@ -42,6 +42,9 @@ public:
 
   virtual void
   read_graph_rtp(const char* port, char* buffer, size_t size) = 0;
+
+  virtual void
+  async_read_graph_rtp(const char* port, char* buffer, size_t size) = 0;
 };
 
 } // xrt_core
