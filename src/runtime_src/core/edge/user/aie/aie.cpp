@@ -326,6 +326,28 @@ sync_bo_nb(std::vector<xrt::bo>& bos, const char *port_name, enum xclBOSyncDirec
   submit_sync_bo(bos[0], gmio_itr->second, gmio_config_itr->second, dir, size, offset);
 }
 
+bool
+aie_array::
+status_gmio(const std::string& port_name)
+{
+  if (!dev_inst)
+    throw xrt_core::error(-EINVAL, "Can't get status of GMIO: AIE is not initialized");
+
+  if (access_mode == xrt::aie::access_mode::shared)
+    throw xrt_core::error(-EPERM, "Can't get status of GMIO: Shared AIE context");
+
+  auto ebuf_itr = external_buffer_configs.find(port_name);
+  if (ebuf_itr != external_buffer_configs.end()) {
+    throw xrt_core::error(-EINVAL, "Not supported");
+  }
+
+  auto gmio_itr = gmio_apis.find(port_name);
+  if (gmio_itr == gmio_apis.end())
+    throw xrt_core::error(-EINVAL, "Can't get status of GMIO: GMIO name not found");
+
+  return gmio_itr->second->status();
+}
+
 void
 aie_array::
 wait_gmio(const std::string& port_name)

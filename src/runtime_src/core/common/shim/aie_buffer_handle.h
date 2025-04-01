@@ -30,6 +30,12 @@ public:
     throw xrt_core::error(std::errc::not_supported, __func__);
   }
 
+  virtual bool
+  status()
+  {
+    throw xrt_core::error(std::errc::not_supported, __func__);
+  }
+
   virtual void
   wait()
   {

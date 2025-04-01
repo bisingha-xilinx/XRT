@@ -33,6 +33,9 @@ namespace zynqaie {
     void
     async(std::vector<xrt::bo>& bos, xclBOSyncDirection dir, size_t size, size_t offset);
 
+    bool
+    status();
+
     void
     wait();
 
