@@ -56,6 +56,12 @@ namespace zynqaie {
     async_started = true;
   }
 
+  bool
+  aie_buffer_object::status()
+  {
+    return m_aie_array->status_gmio(name);
+  }
+
   void
   aie_buffer_object::wait()
   {

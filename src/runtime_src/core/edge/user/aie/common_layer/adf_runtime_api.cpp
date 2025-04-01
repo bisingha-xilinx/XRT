@@ -722,6 +722,11 @@ err_code gmio_api::enqueueBD(XAie_MemInst *memInst, uint64_t offset, size_t size
     return err_code::ok;
 }
 
+bool gmio_api::status()
+{
+    return XAie_DmaWaitForDone(config->get_dev(), gmioTileLoc, convertLogicalToPhysicalDMAChNum(pGMIOConfig->channelNum), (pGMIOConfig->type == gmio_config::gm2aie ? DMA_MM2S : DMA_S2MM), 0) == XAIE_OK;
+}
+
 err_code gmio_api::wait()
 {
     if (!isConfigured)

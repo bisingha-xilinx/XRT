@@ -216,6 +216,12 @@ public:
     m_buffer_handle->async(bos, dir, size, offset);
   }
 
+  bool
+  status() const
+  {
+    return m_buffer_handle->status();
+  }
+
   void
   wait() const
   {
@@ -512,6 +518,13 @@ async(xrt::bo ping, xrt::bo pong, xclBOSyncDirection dir, size_t size, size_t of
 {
   std::vector<xrt::bo> bos {std::move(ping),std::move(pong)};
   return get_handle()->async(bos, dir, size, offset);
+}
+
+bool
+buffer::
+status() const
+{
+  return get_handle()->status();
 }
 
 void

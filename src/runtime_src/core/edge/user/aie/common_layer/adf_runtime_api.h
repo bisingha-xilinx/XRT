@@ -69,6 +69,7 @@ public:
 
   err_code configure();
   err_code enqueueBD(XAie_MemInst *memInst, uint64_t offset, size_t size);
+  bool status();
   err_code wait();
   err_code enqueueTask(std::vector<dma_api::buffer_descriptor> bdParams, uint32_t repeatCount, bool enableTaskCompleteToken);
   std::shared_ptr<config_manager>
