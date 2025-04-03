@@ -90,6 +90,7 @@ private:
   std::queue<size_t> enqueuedBDs;
   std::queue<size_t> availableBDs;
   std::shared_ptr<config_manager> config;
+  bool async_finished = false;
 };
 
 err_code checkRTPConfigForUpdate(const rtp_config* pRTPConfig, const graph_config* pGraphConfig, size_t numBytes, bool isRunning = false);
