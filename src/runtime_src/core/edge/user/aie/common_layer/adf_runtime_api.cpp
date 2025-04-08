@@ -665,10 +665,10 @@ err_code gmio_api::configure()
     return err_code::ok;
 }
 
-err_code gmio_api::enqueueBD(XAie_MemInst *memInst, uint64_t offset, size_t size)
+uint16_t gmio_api::enqueueBD(XAie_MemInst *memInst, uint64_t offset, size_t size)
 {
     if (!isConfigured)
-        return errorMsg(err_code::internal_error, "ERROR: adf::gmio_api::enqueueBD: GMIO is not configured.");
+        throw xrt_core::error(-EINVAL, "ERROR: adf::gmio_api::enqueueBD: GMIO is not configured.");
 
     int driverStatus = XAIE_OK; //0
 
@@ -717,14 +717,24 @@ err_code gmio_api::enqueueBD(XAie_MemInst *memInst, uint64_t offset, size_t size
 
     // Update status after using AIE driver
     if (driverStatus != AieRC::XAIE_OK)
-        return errorMsg(err_code::aie_driver_error, "ERROR: adf::gmio_api::enqueueBD: AIE driver error.");
+        throw xrt_core::error(-EINVAL, "ERROR: adf::gmio_api::enqueueBD: AIE driver error.");
 
-    return err_code::ok;
+    return bdNumber;
 }
 
-bool gmio_api::status()
+bool gmio_api::status(uint16_t bdNum)
 {
-    return async_finished = XAie_DmaWaitForDone(config->get_dev(), gmioTileLoc, convertLogicalToPhysicalDMAChNum(pGMIOConfig->channelNum), (pGMIOConfig->type == gmio_config::gm2aie ? DMA_MM2S : DMA_S2MM), 0) == XAIE_OK;
+    int qSize = availableBDs.size();
+    std::cout<<"bdNum: "<<bdNum<<std::endl;
+    for (int i = 0; i < qSize; i++)
+    {
+        size_t bdNumber = frontAndPop(availableBDs);
+        availableBDs.push(bdNumber);
+        std::cout<<"bdNumber: "<<bdNumber<<std::endl;
+        if (bdNumber == bdNum)
+            return true; //do i need to keep the BDs in the same order?
+    }
+    return false;
 }
 
 err_code gmio_api::wait()
@@ -744,7 +754,6 @@ err_code gmio_api::wait()
         size_t bdNumber = frontAndPop(enqueuedBDs);
         availableBDs.push(bdNumber);
     }
-    async_finished = false;
 
     return err_code::ok;
 }
