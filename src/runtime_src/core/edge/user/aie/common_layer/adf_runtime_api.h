@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "core/common/error.h"
+
 #include "adf_api_config.h"
 #include "adf_api_message.h"
 #include "adf_aie_control_api.h"
@@ -68,8 +70,8 @@ public:
   virtual ~gmio_api() {}
 
   err_code configure();
-  err_code enqueueBD(XAie_MemInst *memInst, uint64_t offset, size_t size);
-  bool status();
+  uint16_t enqueueBD(XAie_MemInst *memInst, uint64_t offset, size_t size);
+  bool status(uint16_t bdNum);
   err_code wait();
   err_code enqueueTask(std::vector<dma_api::buffer_descriptor> bdParams, uint32_t repeatCount, bool enableTaskCompleteToken);
   std::shared_ptr<config_manager>
@@ -90,7 +92,6 @@ private:
   std::queue<size_t> enqueuedBDs;
   std::queue<size_t> availableBDs;
   std::shared_ptr<config_manager> config;
-  bool async_finished = false;
 };
 
 err_code checkRTPConfigForUpdate(const rtp_config* pRTPConfig, const graph_config* pGraphConfig, size_t numBytes, bool isRunning = false);

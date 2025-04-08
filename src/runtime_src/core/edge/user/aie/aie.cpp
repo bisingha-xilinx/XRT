@@ -293,7 +293,7 @@ sync_bo(std::vector<xrt::bo>& bos, const char *port_name, enum xclBOSyncDirectio
   gmio_itr->second->wait();
 }
 
-void
+uint16_t
 aie_array::
 sync_bo_nb(std::vector<xrt::bo>& bos, const char *port_name, enum xclBOSyncDirection dir, size_t size, size_t offset)
 {
@@ -309,7 +309,7 @@ sync_bo_nb(std::vector<xrt::bo>& bos, const char *port_name, enum xclBOSyncDirec
   auto ebuf_itr = external_buffer_configs.find(port_name);
   if (ebuf_itr != external_buffer_configs.end()) {
     sync_external_buffer(bos, ebuf_itr->second, dir, size, offset);
-    return;
+    return 0; //what should we return in this usecase
   }
 
   if (bos.size() > 1)
@@ -323,12 +323,12 @@ sync_bo_nb(std::vector<xrt::bo>& bos, const char *port_name, enum xclBOSyncDirec
   if (gmio_config_itr == gmio_configs.end())
     throw xrt_core::error(-EINVAL, "Can't sync BO: GMIO name not found");
 
-  submit_sync_bo(bos[0], gmio_itr->second, gmio_config_itr->second, dir, size, offset);
+  return submit_sync_bo(bos[0], gmio_itr->second, gmio_config_itr->second, dir, size, offset);
 }
 
 bool
 aie_array::
-status_gmio(const std::string& port_name)
+status_gmio(const std::string& port_name, uint16_t bdNum)
 {
   if (!dev_inst)
     throw xrt_core::error(-EINVAL, "Can't get status of GMIO: AIE is not initialized");
@@ -345,7 +345,7 @@ status_gmio(const std::string& port_name)
   if (gmio_itr == gmio_apis.end())
     throw xrt_core::error(-EINVAL, "Can't get status of GMIO: GMIO name not found");
 
-  return gmio_itr->second->status();
+  return gmio_itr->second->status(bdNum);
 }
 
 void
@@ -371,7 +371,7 @@ wait_gmio(const std::string& port_name)
   gmio_itr->second->wait();
 }
 
-void
+uint16_t
 aie_array::
 submit_sync_bo(xrt::bo& bo, std::shared_ptr<adf::gmio_api>& gmio_api, adf::gmio_config& gmio_config, enum xclBOSyncDirection dir, size_t size, size_t offset)
 {
@@ -392,8 +392,10 @@ submit_sync_bo(xrt::bo& bo, std::shared_ptr<adf::gmio_api>& gmio_api, adf::gmio_
     throw xrt_core::error(-EINVAL, "Sync AIE Bo fails: size is not 32 bits aligned.");
   aie_bd bd;
   prepare_bd(bd, bo);
-  gmio_api->enqueueBD(&bd.mem_inst, offset, size);
+  auto bdNumber = gmio_api->enqueueBD(&bd.mem_inst, offset, size);
   clear_bd(bd);
+
+  return bdNumber;
 }
 
 void
