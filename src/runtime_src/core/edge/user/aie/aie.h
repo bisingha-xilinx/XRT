@@ -114,11 +114,11 @@ public:
   void
   sync_bo(std::vector<xrt::bo>& bos, const char *dmaID, enum xclBOSyncDirection dir, size_t size, size_t offset);
 
-  uint16_t
+  std::pair<size_t, size_t>
   sync_bo_nb(std::vector<xrt::bo>& bos, const char *gmioName, enum xclBOSyncDirection dir, size_t size, size_t offset);
 
   bool
-  status_gmio(const std::string& gmioName, uint16_t bdNum);
+  status_gmio(const std::string& gmioName, uint16_t bdNum, uint32_t bdInstance);
 
   void
   wait_gmio(const std::string& gmioName);
@@ -171,7 +171,7 @@ private:
   std::vector<event_record> event_records;
   std::shared_ptr<adf::config_manager> m_config;
 
-  uint16_t
+  std::pair<size_t, size_t>
   submit_sync_bo(xrt::bo& bo, std::shared_ptr<adf::gmio_api>& gmio, adf::gmio_config& gmio_config, enum xclBOSyncDirection dir, size_t size, size_t offset);
 
   adf::shim_config

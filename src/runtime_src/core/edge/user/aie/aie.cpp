@@ -293,7 +293,7 @@ sync_bo(std::vector<xrt::bo>& bos, const char *port_name, enum xclBOSyncDirectio
   gmio_itr->second->wait();
 }
 
-uint16_t
+std::pair<size_t, size_t>
 aie_array::
 sync_bo_nb(std::vector<xrt::bo>& bos, const char *port_name, enum xclBOSyncDirection dir, size_t size, size_t offset)
 {
@@ -309,7 +309,7 @@ sync_bo_nb(std::vector<xrt::bo>& bos, const char *port_name, enum xclBOSyncDirec
   auto ebuf_itr = external_buffer_configs.find(port_name);
   if (ebuf_itr != external_buffer_configs.end()) {
     sync_external_buffer(bos, ebuf_itr->second, dir, size, offset);
-    return 0; //what should we return in this usecase
+    return std::make_pair(0,0); //what should we return in this usecase
   }
 
   if (bos.size() > 1)
@@ -328,7 +328,7 @@ sync_bo_nb(std::vector<xrt::bo>& bos, const char *port_name, enum xclBOSyncDirec
 
 bool
 aie_array::
-status_gmio(const std::string& port_name, uint16_t bdNum)
+status_gmio(const std::string& port_name, uint16_t bdNum, uint32_t bdInstance)
 {
   if (!dev_inst)
     throw xrt_core::error(-EINVAL, "Can't get status of GMIO: AIE is not initialized");
@@ -345,7 +345,7 @@ status_gmio(const std::string& port_name, uint16_t bdNum)
   if (gmio_itr == gmio_apis.end())
     throw xrt_core::error(-EINVAL, "Can't get status of GMIO: GMIO name not found");
 
-  return gmio_itr->second->status(bdNum);
+  return gmio_itr->second->status(bdNum, bdInstance);
 }
 
 void
@@ -371,7 +371,7 @@ wait_gmio(const std::string& port_name)
   gmio_itr->second->wait();
 }
 
-uint16_t
+std::pair<size_t, size_t>
 aie_array::
 submit_sync_bo(xrt::bo& bo, std::shared_ptr<adf::gmio_api>& gmio_api, adf::gmio_config& gmio_config, enum xclBOSyncDirection dir, size_t size, size_t offset)
 {
@@ -392,10 +392,10 @@ submit_sync_bo(xrt::bo& bo, std::shared_ptr<adf::gmio_api>& gmio_api, adf::gmio_
     throw xrt_core::error(-EINVAL, "Sync AIE Bo fails: size is not 32 bits aligned.");
   aie_bd bd;
   prepare_bd(bd, bo);
-  auto bdNumber = gmio_api->enqueueBD(&bd.mem_inst, offset, size);
+  std::pair<size_t, size_t> BD = gmio_api->enqueueBD(&bd.mem_inst, offset, size);
   clear_bd(bd);
 
-  return bdNumber;
+  return BD;
 }
 
 void
