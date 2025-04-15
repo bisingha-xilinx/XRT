@@ -17,6 +17,8 @@
 #include "adf_runtime_api.h"
 #include "adf_api_message.h"
 
+#include "core/common/error.h"
+
 #include <algorithm>
 #include <sstream>
 #include <map>
@@ -649,6 +651,7 @@ err_code gmio_api::configure()
         {
             int bdNum = ((1 - pGMIOConfig->type) * 2 + pGMIOConfig->channelNum) * dmaStartQMaxSize + j;
             availableBDs.push(bdNum);
+            statusBDs[bdNum] = 0;
 
             //set AXI burst length, this won't change during runtime
             driverStatus |= XAie_DmaSetAxi(&shimDmaInst, 0 /*Smid*/, pGMIOConfig->burstLength /*BurstLen*/, 0 /*Qos*/, 0 /*Cache*/, 0 /*Secure*/);
@@ -665,28 +668,37 @@ err_code gmio_api::configure()
     return err_code::ok;
 }
 
-uint16_t gmio_api::enqueueBD(XAie_MemInst *memInst, uint64_t offset, size_t size)
+void gmio_api::getAvailableBDs()
+{
+    u8 numPendingBDs = 0;
+    u8 dmaStartQMaxSize = 0;
+    int numBDCompleted = 0;
+    XAie_DmaGetMaxQueueSize(config->get_dev(), gmioTileLoc, &dmaStartQMaxSize);
+    XAie_DmaGetPendingBdCount(config->get_dev(), gmioTileLoc, pGMIOConfig->channelNum, (pGMIOConfig->type == gmio_config::gm2aie ? DMA_MM2S : DMA_S2MM), &numPendingBDs);
+    numBDCompleted = dmaStartQMaxSize - numPendingBDs;
+    std::cout<<__func__<<" called XAie_DmaGetPendingBdCount(), numBDCompleted:"<<numBDCompleted<<std::endl;
+    for (int i = 0; i < numBDCompleted && !enqueuedBDs.empty(); i++)
+    {
+        uint16_t bdNumber = frontAndPop(enqueuedBDs);
+        statusBDs[bdNumber]++;
+        availableBDs.push(bdNumber);
+    }
+}
+
+std::pair<size_t, size_t> gmio_api::enqueueBD(XAie_MemInst *memInst, uint64_t offset, size_t size)
 {
     if (!isConfigured)
-        throw xrt_core::error(-EINVAL, "ERROR: adf::gmio_api::enqueueBD: GMIO is not configured.");
+        throw xrt_core::error(-ENODEV, "ERROR: adf::gmio_api::enqueueBD: GMIO is not configured.");
 
     int driverStatus = XAIE_OK; //0
 
-    //get available BDs first
-    u8 numPendingBDs = 0;
-    driverStatus |= XAie_DmaGetPendingBdCount(config->get_dev(), gmioTileLoc, pGMIOConfig->channelNum, (pGMIOConfig->type == gmio_config::gm2aie ? DMA_MM2S : DMA_S2MM), &numPendingBDs);
-
-    int numBDCompleted = dmaStartQMaxSize - numPendingBDs;
-    //move completed BDs from enqueuedBDs to availableBDs
-    for (int i = 0; i < numBDCompleted && !enqueuedBDs.empty(); i++)
-    {
-        uint16_t bdNum = frontAndPop(enqueuedBDs);
-        availableBDs.push(bdNum);
-    }
+    //get available BDs
+    if (availableBDs.empty())
+        getAvailableBDs();
 
     //first check if we have atleast one availabe BD to proceed
     if (availableBDs.empty())
-        return errorMsg(err_code::internal_error, "ERROR: adf::gmio_api::enqueueBD: available BDs are empty.");
+        throw xrt_core::error(-EAGAIN, "ERROR: adf::gmio_api::enqueueBD: available BDs are empty.");
 
     //get an available BD
     uint16_t bdNumber = frontAndPop(availableBDs);
@@ -717,24 +729,18 @@ uint16_t gmio_api::enqueueBD(XAie_MemInst *memInst, uint64_t offset, size_t size
 
     // Update status after using AIE driver
     if (driverStatus != AieRC::XAIE_OK)
-        throw xrt_core::error(-EINVAL, "ERROR: adf::gmio_api::enqueueBD: AIE driver error.");
+        throw xrt_core::error(-EIO, "ERROR: adf::gmio_api::enqueueBD: AIE driver error.");
 
-    return bdNumber;
+    return std::make_pair(bdNumber, statusBDs[bdNumber]);
 }
 
-bool gmio_api::status(uint16_t bdNum)
+bool gmio_api::status(uint16_t bdNum, uint32_t bdInstance)
 {
-    int qSize = availableBDs.size();
-    std::cout<<"bdNum: "<<bdNum<<std::endl;
-    for (int i = 0; i < qSize; i++)
-    {
-        size_t bdNumber = frontAndPop(availableBDs);
-        availableBDs.push(bdNumber);
-        std::cout<<"bdNumber: "<<bdNumber<<std::endl;
-        if (bdNumber == bdNum)
-            return true; //do i need to keep the BDs in the same order?
-    }
-    return false;
+    bool buffer_status = false;
+    //update the availableBDs queue first
+    getAvailableBDs();
+
+    return statusBDs[bdNum] > bdInstance;
 }
 
 err_code gmio_api::wait()

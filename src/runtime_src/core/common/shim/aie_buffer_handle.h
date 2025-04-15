@@ -4,6 +4,7 @@
 #ifndef XRT_CORE_AIE_BUFFER_HANDLE_H
 #define XRT_CORE_AIE_BUFFER_HANDLE_H
 #include <vector>
+#include <system_error>
 #include "xrt.h"
 #include "xrt/xrt_bo.h"
 namespace xrt_core {

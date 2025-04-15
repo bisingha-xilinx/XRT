@@ -23,7 +23,7 @@ namespace zynqaie {
     std::shared_ptr<aie_array> m_aie_array;
     std::mutex mtx;
     bool async_started = false;
-    uint16_t bdNum;
+    std::pair<uint16_t, uint32_t> BD;
 
   public:
     aie_buffer_object(xrt_core::device* device, const xrt::uuid uuid, const char* name, zynqaie::hwctx_object* hwctx=nullptr);
