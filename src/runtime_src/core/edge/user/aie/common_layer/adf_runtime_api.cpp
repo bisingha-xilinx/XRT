@@ -671,12 +671,11 @@ err_code gmio_api::configure()
 void gmio_api::getAvailableBDs()
 {
     u8 numPendingBDs = 0;
-    u8 dmaStartQMaxSize = 0;
     int numBDCompleted = 0;
-    XAie_DmaGetMaxQueueSize(config->get_dev(), gmioTileLoc, &dmaStartQMaxSize);
+
     XAie_DmaGetPendingBdCount(config->get_dev(), gmioTileLoc, pGMIOConfig->channelNum, (pGMIOConfig->type == gmio_config::gm2aie ? DMA_MM2S : DMA_S2MM), &numPendingBDs);
     numBDCompleted = dmaStartQMaxSize - numPendingBDs;
-    std::cout<<__func__<<" called XAie_DmaGetPendingBdCount(), numBDCompleted:"<<numBDCompleted<<std::endl;
+
     for (int i = 0; i < numBDCompleted && !enqueuedBDs.empty(); i++)
     {
         uint16_t bdNumber = frontAndPop(enqueuedBDs);
@@ -736,8 +735,10 @@ std::pair<size_t, size_t> gmio_api::enqueueBD(XAie_MemInst *memInst, uint64_t of
 
 bool gmio_api::status(uint16_t bdNum, uint32_t bdInstance)
 {
-    bool buffer_status = false;
-    //update the availableBDs queue first
+    if (statusBDs[bdNum] > bdInstance)
+        return true;
+
+    //update the availableBDs queue
     getAvailableBDs();
 
     return statusBDs[bdNum] > bdInstance;
