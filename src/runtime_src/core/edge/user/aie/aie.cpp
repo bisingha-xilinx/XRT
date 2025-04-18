@@ -309,7 +309,7 @@ sync_bo_nb(std::vector<xrt::bo>& bos, const char *port_name, enum xclBOSyncDirec
   auto ebuf_itr = external_buffer_configs.find(port_name);
   if (ebuf_itr != external_buffer_configs.end()) {
     sync_external_buffer(bos, ebuf_itr->second, dir, size, offset);
-    return std::make_pair(0,0); //what should we return in this usecase
+    return std::make_pair(0,0);
   }
 
   if (bos.size() > 1)
