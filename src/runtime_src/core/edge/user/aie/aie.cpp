@@ -243,6 +243,25 @@ sync_external_buffer(std::vector<xrt::bo>& bos, adf::external_buffer_config& con
   }
 }
 
+bool
+aie_array::
+status_external_buffer(adf::external_buffer_config& config)
+{
+  if (config.shim_port_configs.empty())
+    throw xrt_core::error(-EINVAL, "Can't get status of External Buffer: No shim port configs");
+
+  if (config.num_bufs == 2)
+    return true; // for ping pong buffers return true
+
+  adf::dma_api dma_api_obj(m_config);
+  for (auto& port_config : config.shim_port_configs) {
+    if (!dma_api_obj.statusDMAChannelDone(1 /*adf::tile_type::shim_tile*/, port_config.shim_column, 0/*shim row*/, port_config.direction, port_config.channel_number))
+      return false;
+  }
+
+  return true;
+}
+
 void
 aie_array::
 wait_external_buffer(adf::external_buffer_config& config)
@@ -328,7 +347,7 @@ sync_bo_nb(std::vector<xrt::bo>& bos, const char *port_name, enum xclBOSyncDirec
 
 bool
 aie_array::
-status_gmio(const std::string& port_name, uint16_t bdNum, uint32_t bdInstance)
+status(const std::string& port_name, uint16_t bdNum, uint32_t bdInstance)
 {
   if (!dev_inst)
     throw xrt_core::error(-EINVAL, "Can't get status of GMIO: AIE is not initialized");
@@ -337,9 +356,8 @@ status_gmio(const std::string& port_name, uint16_t bdNum, uint32_t bdInstance)
     throw xrt_core::error(-EPERM, "Can't get status of GMIO: Shared AIE context");
 
   auto ebuf_itr = external_buffer_configs.find(port_name);
-  if (ebuf_itr != external_buffer_configs.end()) {
-    throw xrt_core::error(-EINVAL, "Not supported");
-  }
+  if (ebuf_itr != external_buffer_configs.end())
+    return status_external_buffer(ebuf_itr->second);
 
   auto gmio_itr = gmio_apis.find(port_name);
   if (gmio_itr == gmio_apis.end())

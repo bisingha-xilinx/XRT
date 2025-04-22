@@ -59,7 +59,7 @@ namespace zynqaie {
   bool
   aie_buffer_object::status()
   {
-    return m_aie_array->status_gmio(name, BD.first, BD.second);
+    return m_aie_array->status(name, BD.first, BD.second);
   }
 
   void

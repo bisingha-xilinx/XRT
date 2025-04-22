@@ -108,6 +108,9 @@ public:
   void
   sync_external_buffer(std::vector<xrt::bo>& bo, adf::external_buffer_config& ebuf_config, enum xclBOSyncDirection dir, size_t size, size_t offset);
 
+  bool
+  status_external_buffer(adf::external_buffer_config& ebuf_config);
+
   void
   wait_external_buffer(adf::external_buffer_config& ebuf_config);
 
@@ -118,7 +121,7 @@ public:
   sync_bo_nb(std::vector<xrt::bo>& bos, const char *gmioName, enum xclBOSyncDirection dir, size_t size, size_t offset);
 
   bool
-  status_gmio(const std::string& gmioName, uint16_t bdNum, uint32_t bdInstance);
+  status(const std::string& gmioName, uint16_t bdNum, uint32_t bdInstance);
 
   void
   wait_gmio(const std::string& gmioName);

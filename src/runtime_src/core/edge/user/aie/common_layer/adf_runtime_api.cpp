@@ -672,8 +672,12 @@ void gmio_api::getAvailableBDs()
 {
     u8 numPendingBDs = 0;
     int numBDCompleted = 0;
+    int driverStatus = XAIE_OK; //0
 
-    XAie_DmaGetPendingBdCount(config->get_dev(), gmioTileLoc, pGMIOConfig->channelNum, (pGMIOConfig->type == gmio_config::gm2aie ? DMA_MM2S : DMA_S2MM), &numPendingBDs);
+    driverStatus |= XAie_DmaGetPendingBdCount(config->get_dev(), gmioTileLoc, pGMIOConfig->channelNum, (pGMIOConfig->type == gmio_config::gm2aie ? DMA_MM2S : DMA_S2MM), &numPendingBDs);
+    if (driverStatus != AieRC::XAIE_OK)
+        throw xrt_core::error(-EIO, "ERROR: adf::gmio_api::getAvailableBDs: AIE driver error.");
+
     numBDCompleted = dmaStartQMaxSize - numPendingBDs;
 
     for (int i = 0; i < numBDCompleted && !enqueuedBDs.empty(); i++)
@@ -692,12 +696,8 @@ std::pair<size_t, size_t> gmio_api::enqueueBD(XAie_MemInst *memInst, uint64_t of
     int driverStatus = XAIE_OK; //0
 
     //get available BDs
-    if (availableBDs.empty())
+    while (availableBDs.empty())
         getAvailableBDs();
-
-    //first check if we have atleast one availabe BD to proceed
-    if (availableBDs.empty())
-        throw xrt_core::error(-EAGAIN, "ERROR: adf::gmio_api::enqueueBD: available BDs are empty.");
 
     //get an available BD
     uint16_t bdNumber = frontAndPop(availableBDs);
@@ -924,6 +924,13 @@ err_code dma_api::waitDMAChannelTaskQueue(int tileType, uint8_t column, uint8_t 
         return errorMsg(err_code::aie_driver_error, "ERROR: adf::dma_api::waitDMAChannelTaskQueue: AIE driver error.");
 
     return err_code::ok;
+}
+
+bool dma_api::statusDMAChannelDone(int tileType, uint8_t column, uint8_t row, int dir, uint8_t channel)
+{
+    XAie_LocType tileLoc = XAie_TileLoc(column, relativeToAbsoluteRow(config, tileType, row));
+
+    return XAie_DmaWaitForDone(config->get_dev(), tileLoc, channel, (XAie_DmaDirection)dir, 0) == XAIE_OK;
 }
 
 err_code dma_api::waitDMAChannelDone(int tileType, uint8_t column, uint8_t row, int dir, uint8_t channel)
