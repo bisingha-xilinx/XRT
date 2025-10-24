@@ -586,7 +586,7 @@ zocl_create_bo_ioctl(struct drm_device *dev, void *data, struct drm_file *filp)
 
 	mem_index = GET_MEM_INDEX(args->flags);
 	mem = zocl_get_mem_by_mem_index(zdev, mem_index);
-
+	printk("[bs]: %s: mem base: 0x%llx size:0x%llx index: %d mem_type:%d\n", __func__, mem->zm_base_addr, mem->zm_size, mem->zm_mem_idx, mem->zm_type);
 	/* Always allocate EXECBUF from CMA */
 	if (args->flags & ZOCL_BO_FLAGS_EXECBUF)
 		args->flags |= ZOCL_BO_FLAGS_CMA;
@@ -1283,8 +1283,10 @@ void zocl_update_mem_stat(struct drm_zocl_dev *zdev, u64 size, int count,
 /* This function return True if given region is reserved
  * on device tree. Else return False
  */
-static bool check_for_reserved_memory(uint64_t start_addr, size_t size)
+static bool check_for_reserved_memory(struct zocl_mem *memp)
 {
+	uint64_t start_addr = memp->zm_base_addr;
+	size_t size = memp->zm_size;
 	struct device_node *mem_np;
 	struct device_node *np_it;
 	struct resource res_mem;
@@ -1303,8 +1305,8 @@ static bool check_for_reserved_memory(uint64_t start_addr, size_t size)
 			/* Check the given address and size fall
 			 * in this reserved memory region
 			 */
-			if (start_addr == res_mem.start &&
-					size == resource_size(&res_mem)) {
+			if (start_addr == res_mem.start && size != 0 && resource_size(&res_mem) != 0) {
+				memp->zm_size = size > resource_size(&res_mem) ? resource_size(&res_mem) : size;
 				of_node_put(mem_np);
 				return true;
 			}
@@ -1368,14 +1370,13 @@ void zocl_init_mem(struct drm_zocl_dev *zdev, struct drm_zocl_slot *slot)
 
 		list_add_tail(&memp->link, &zdev->zm_list_head);
 
-		if (!check_for_reserved_memory(memp->zm_base_addr,
-					       memp->zm_size)) {
-			DRM_DEBUG("Memory %d is not reserved in device tree."
-					" Will allocate memory from CMA\n", i);
+		if (!check_for_reserved_memory(memp)) {
+			DRM_ERROR("Memory %d, base: 0x%llx is not reserved in device tree."
+					" Will allocate memory from CMA\n", i, memp->zm_base_addr);
 			memp->zm_type = ZOCL_MEM_TYPE_CMA;
 			continue;
 		}
-
+		printk("[bs]: %s: memory is reserved base: 0x%llx index: %d\n", __func__, memp->zm_base_addr, memp->zm_mem_idx);
                 /* Update the start and end address for the memory manager */
                 if (memp->zm_base_addr < mm_start_addr)
                         mm_start_addr = memp->zm_base_addr;
