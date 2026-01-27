@@ -37,6 +37,7 @@
 #include <numeric>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <regex>
 #include <set>
 #include <string>
@@ -1987,6 +1988,9 @@ class module_sram : public module_impl
   // buffer sync to device.
   bool m_dirty{ false };
 
+  // Mutex to protect concurrent patching operations when module is shared across threads
+  mutable std::mutex m_patch_mutex;
+
   union debug_flag_union {
     struct debug_mode_struct {
       uint32_t dump_control_codes     : 1;
@@ -2157,12 +2161,12 @@ class module_sram : public module_impl
       // find the control-code-* sym-name and patch it in instruction buffer
       // This name is an agreement between aiebu and XRT
       auto sym_name = std::string(Control_Code_Symbol) + "-" + std::to_string(i);
-      if (patch_instr_value(m_buffer,
-                            sym_name,
-                            std::numeric_limits<size_t>::max(),
-                            m_buffer.address() + offset,
-                            xrt_core::patcher::buf_type::ctrltext))
-        m_patched_args.insert(sym_name);
+      patch_instr_value(m_buffer,
+                        sym_name,
+                        std::numeric_limits<size_t>::max(),
+                        m_buffer.address() + offset,
+                        xrt_core::patcher::buf_type::ctrltext,
+                        m_ctrl_code_id);
       offset += col_data[i].size();
     }
 
@@ -2176,9 +2180,8 @@ class module_sram : public module_impl
                     ? name.substr(0, dot_pos)
                     : name;
 
-      if (patch_instr_value(m_buffer, sym_name, std::numeric_limits<size_t>::max(), ctrlpktbo.address(),
-                            xrt_core::patcher::buf_type::ctrltext))
-        m_patched_args.insert(sym_name);
+      patch_instr_value(m_buffer, sym_name, std::numeric_limits<size_t>::max(), ctrlpktbo.address(),
+                        xrt_core::patcher::buf_type::ctrltext, m_ctrl_code_id);
     }
   }
 
@@ -2408,6 +2411,10 @@ class module_sram : public module_impl
   void
   patch_value(const std::string& argnm, size_t index, uint64_t value)
   {
+    // Protect concurrent patching when module is shared across threads
+    // This prevents corruption of m_patched_args, m_dirty, and buffer contents
+    std::lock_guard<std::mutex> lock(m_patch_mutex);
+
     bool patched = false;
     if (m_parent->get_os_abi() == Elf_Amd_Aie2p) {
       // patch control-packet buffer
@@ -2444,9 +2451,13 @@ class module_sram : public module_impl
   patch_instr_value(xrt::bo& bo, const std::string& argnm, size_t index, uint64_t value,
                     xrt_core::patcher::buf_type type)
   {
-    if (!patch_it(bo, argnm, index, value, type, m_first_patch))
+    // Protect concurrent patching when module is shared across threads
+    std::lock_guard<std::mutex> lock(m_patch_mutex);
+
+    if (!m_parent->patch_it(bo, argnm, index, value, type, grp_idx, m_first_patch))
       return false;
 
+    m_patched_args.insert(argnm);
     m_dirty = true;
     return true;
   }
@@ -2456,6 +2467,9 @@ class module_sram : public module_impl
   void
   sync_if_dirty() override
   {
+    // Protect concurrent access to m_dirty and m_first_patch
+    std::lock_guard<std::mutex> lock(m_patch_mutex);
+
     auto os_abi = m_parent.get()->get_os_abi();
 
     if (!m_dirty) {
