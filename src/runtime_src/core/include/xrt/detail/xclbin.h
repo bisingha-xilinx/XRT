@@ -322,6 +322,18 @@ extern "C" {
     };
     XCLBIN_STATIC_ASSERT(sizeof(struct connection) == 12, "connection structure no longer is 12 bytes in size");
 
+    /* Extended connection for connectivity sections that include arg name and mode (e.g. GMIO).
+     * Member names match connectivity schema: arg_index, m_ip_layout_index, mem_data_index
+     * in base; arg_name and mode in extended part. m_arg_name_len is for binary format only.
+     */
+    struct connection_ext {
+        struct connection base;  /* arg_index, m_ip_layout_index, mem_data_index */
+        uint16_t m_arg_name_len; /* 0 if not present (legacy); length of arg_name string */
+        char arg_name[54];      /* GMIO port name, matches connectivity "arg_name" */
+        char mode[8];           /* e.g. "Master", matches connectivity "mode" */
+    };
+    XCLBIN_STATIC_ASSERT(sizeof(struct connection_ext) == 76, "connection_ext structure no longer is 76 bytes in size");
+
     struct connectivity {
         int32_t m_count;
         struct connection m_connection[1];

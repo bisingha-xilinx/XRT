@@ -98,6 +98,22 @@ public:
   get_timestamp() const;
 
   /**
+   * gmio_bank_id() - Get memory bank index for a GMIO port by name.
+   *
+   * Use the returned value when creating xrt::aie::bo for this GMIO so the
+   * buffer is allocated in the correct DDR bank. The graph must have been
+   * created from an hw_context (e.g. graph(hwctx, "mygraph")).
+   *
+   * @param gmio_name
+   *   GMIO port name (e.g. "in1", "out1" or "mygraph.in1") as used in sync/async.
+   * @return
+   *   Bank index to pass to xrt::aie::bo(hwctx, size, flags, bank_id).
+   * @throws std::runtime_error if graph has no hw_context or no connectivity for the name.
+   */
+  uint32_t
+  gmio_bank_id(const std::string& gmio_name) const;
+
+  /**
    * run() - Start graph execution.
    *
    * @param iterations

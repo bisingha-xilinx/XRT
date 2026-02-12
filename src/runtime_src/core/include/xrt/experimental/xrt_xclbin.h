@@ -741,6 +741,19 @@ public:
   /// @endcond
 
   /**
+   * get_gmio_mem_index() - Get memory bank index for a GMIO port by name
+   *
+   * @param gmio_name
+   *   GMIO port name (e.g. "in1", "out1" or "mygraph.in1") as used in sync/async.
+   * @return
+   *   mem_data_index for that port (for use as bank id when creating BO).
+   * @throws std::runtime_error if xclbin has no named connectivity for this port.
+   */
+  XRT_API_EXPORT
+  int32_t
+  get_gmio_mem_index(const std::string& gmio_name) const;
+
+  /**
    * get_xsa_name() - Get Xilinx Support Archive (XSA) name of xclbin
    *
    * @return

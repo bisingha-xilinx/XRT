@@ -394,6 +394,49 @@ class xclbin_impl
     // xrt core to manage compute unit connectivity.
     std::vector<size_t> m_membank_encoding;
 
+    // GMIO port name -> mem_data_index (for graph::gmio_bank_id).
+    std::map<std::string, int32_t> m_gmio_name_to_mem_index;
+
+    static std::map<std::string, int32_t>
+    init_gmio_connectivity(const xclbin_impl* ximpl)
+    {
+      std::map<std::string, int32_t> gmio_name_to_mem_index;
+      auto raw = ximpl->get_axlf_section(ASK_GROUP_CONNECTIVITY);
+      if (!raw.first || raw.second < 4) {
+        try {
+          raw = ximpl->get_axlf_section(CONNECTIVITY);
+        } catch (...) {
+          return gmio_name_to_mem_index;
+        }
+      }
+      if (!raw.first || raw.second < 4)
+        return gmio_name_to_mem_index;
+      const char* data = raw.first;
+      size_t section_size = raw.second;
+      int32_t m_count = 0;
+      std::memcpy(&m_count, data, 4);
+      if (m_count <= 0)
+        return gmio_name_to_mem_index;
+      const size_t extended_size = 4 + static_cast<size_t>(m_count) * sizeof(::connection_ext);
+      if (section_size < extended_size)
+        return gmio_name_to_mem_index;
+      for (int32_t i = 0; i < m_count; ++i) {
+        const auto* ext = reinterpret_cast<const ::connection_ext*>(data + 4 + static_cast<size_t>(i) * sizeof(::connection_ext));
+        if (ext->m_arg_name_len == 0 || ext->m_arg_name_len >= sizeof(ext->arg_name))
+          continue;
+        std::string name(ext->arg_name, std::min(static_cast<size_t>(ext->m_arg_name_len), sizeof(ext->arg_name) - 1));
+        if (name.empty())
+          continue;
+        int32_t mem_idx = ext->base.mem_data_index;
+        auto it = gmio_name_to_mem_index.find(name);
+        if (it == gmio_name_to_mem_index.end())
+          gmio_name_to_mem_index[name] = mem_idx;
+        else
+          it->second = std::max(it->second, mem_idx);
+      }
+      return gmio_name_to_mem_index;
+    }
+
     // init_mems() - populate m_mems with xrt::mem objects
     //
     // Iterate the GROUP_TOPOLOGY section in xclbin and create
@@ -579,6 +622,7 @@ class xclbin_impl
       , m_kernels(init_kernels(m_ximpl, m_ips))
       , m_aie_partitions(init_aie_partitions(m_ximpl))
       , m_membank_encoding(init_mem_encoding(m_mems))
+      , m_gmio_name_to_mem_index(init_gmio_connectivity(m_ximpl))
     {}
   };
 
@@ -746,6 +790,16 @@ public:
   get_aie_partitions() const
   {
     return get_xclbin_info()->m_aie_partitions;
+  }
+
+  int32_t
+  get_gmio_mem_index(const std::string& gmio_name) const
+  {
+    const auto* info = get_xclbin_info();
+    auto it = info->m_gmio_name_to_mem_index.find(gmio_name);
+    if (it == info->m_gmio_name_to_mem_index.end())
+      throw std::runtime_error("No connectivity for GMIO port '" + gmio_name + "' (xclbin may use legacy connectivity without arg_name)");
+    return it->second;
   }
 };
 
@@ -1092,6 +1146,15 @@ xclbin::
 get_aie_partitions() const
 {
   return handle ? handle->get_aie_partitions() : std::vector<xclbin::aie_partition>{};
+}
+
+int32_t
+xclbin::
+get_gmio_mem_index(const std::string& gmio_name) const
+{
+  if (!handle)
+    throw std::runtime_error("get_gmio_mem_index: empty xclbin");
+  return handle->get_gmio_mem_index(gmio_name);
 }
 
 std::string
