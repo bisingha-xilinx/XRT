@@ -14,14 +14,22 @@
 #include "core/common/shim/graph_handle.h"
 #include "core/common/shim/profile_handle.h"
 
-namespace xrt_core {
+namespace xrt_core::edge {
 
 // concrete class derives from device_edge, but mixes in
 // shim layer functions for access through base class
+#ifdef XRT_NPU_ZOCL
+class device_linux : public noshim<device_edge>
+#else
 class device_linux : public shim<device_edge>
+#endif
 {
 public:
   device_linux(handle_type device_handle, id_type device_id, bool user);
+
+#ifdef XRT_NPU_ZOCL
+  void close_device() override;
+#endif
 
   // query functions
   virtual void read_dma_stats(boost::property_tree::ptree& pt) const;
@@ -72,16 +80,10 @@ public:
   // Redefined from xrt_core::ishim
   ////////////////////////////////////////////////////////////////
   xclInterruptNotifyHandle
-  open_ip_interrupt_notify(unsigned int ip_index) override
-  {
-    return xclOpenIPInterruptNotify(get_device_handle(), ip_index, 0);
-  }
+  open_ip_interrupt_notify(unsigned int ip_index) override;
 
   void
-  close_ip_interrupt_notify(xclInterruptNotifyHandle handle) override
-  {
-    xclCloseIPInterruptNotify(get_device_handle(), handle);
-  }
+  close_ip_interrupt_notify(xclInterruptNotifyHandle handle) override;
 
   void
   enable_ip_interrupt(xclInterruptNotifyHandle) override;
@@ -98,28 +100,16 @@ public:
   virtual std::unique_ptr<hwctx_handle>
   create_hw_context(const xrt::uuid& xclbin_uuid,
                     const xrt::hw_context::cfg_param_type& cfg_param,
-                    xrt::hw_context::access_mode mode) const override
-  {
-    return xrt::shim_int::create_hw_context(get_device_handle(), xclbin_uuid, cfg_param, mode);
-  }
+                    xrt::hw_context::access_mode mode) const override;
 
   void
-  register_xclbin(const xrt::xclbin& xclbin) const override
-  {
-    xrt::shim_int::register_xclbin(get_device_handle(), xclbin);
-  }
+  register_xclbin(const xrt::xclbin& xclbin) const override;
 
   std::unique_ptr<buffer_handle>
-  alloc_bo(size_t size, uint64_t flags) override
-  {
-    return xrt::shim_int::alloc_bo(get_device_handle(), size, xcl_bo_flags{flags}.flags);
-  }
+  alloc_bo(size_t size, uint64_t flags) override;
 
   std::unique_ptr<buffer_handle>
-  alloc_bo(void* userptr, size_t size, uint64_t flags) override
-  {
-    return xrt::shim_int::alloc_bo(get_device_handle(), userptr, size, xcl_bo_flags{flags}.flags);
-  }
+  alloc_bo(void* userptr, size_t size, uint64_t flags) override;
 
   std::unique_ptr<buffer_handle>
   import_bo(pid_t pid, shared_handle::export_handle ehdl) override;
@@ -130,6 +120,6 @@ private:
   lookup_query(query::key_type query_key) const;
 };
 
-}
+} // namespace xrt_core::edge
 
 #endif /* EDGE_DEVICE_LINUX_H */

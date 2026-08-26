@@ -7,6 +7,10 @@
 #include "pcidev.h"
 #include "core/pcie/common/system_pcie.h"
 
+namespace xrt_core::edge {
+class dev;
+}
+
 namespace xrt_core {
 
 class system_linux : public system_pcie
@@ -57,12 +61,24 @@ public:
   size_t
   get_num_dev_total(bool is_user) const;
 
+#ifdef XRT_NPU_ZOCL
+  bool
+  is_zocl_device(device::id_type id) const;
+
+  std::shared_ptr<edge::dev>
+  get_zocl_dev(device::id_type id) const;
+#endif
+
 private:
   std::vector<std::shared_ptr<pci::dev>> user_ready_list;
   std::vector<std::shared_ptr<pci::dev>> user_nonready_list;
 
   std::vector<std::shared_ptr<pci::dev>> mgmt_ready_list;
   std::vector<std::shared_ptr<pci::dev>> mgmt_nonready_list;
+
+#ifdef XRT_NPU_ZOCL
+  std::vector<std::shared_ptr<edge::dev>> zocl_dev_list;
+#endif
 };
 
 namespace pci {

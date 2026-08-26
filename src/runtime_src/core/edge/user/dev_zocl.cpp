@@ -34,7 +34,8 @@ dev_zocl::
 create_device(device::handle_type handle, device::id_type id) const
 {
   // deliberately not using std::make_shared (used with weak_ptr)
-  return std::shared_ptr<xrt_core::device_linux>(new xrt_core::device_linux(handle, id, true));
+  return std::shared_ptr<xrt_core::edge::device_linux>(
+    new xrt_core::edge::device_linux(handle, id, true));
 }
 
 } //namespace xrt_core::edge

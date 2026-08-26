@@ -10,6 +10,11 @@
 #include "pcidrv_xocl.h"
 #include "core/common/module_loader.h"
 #include "core/common/query_requests.h"
+#ifdef XRT_NPU_ZOCL
+# include "npu_zocl.h"
+# include "core/edge/user/dev.h"
+# include "core/edge/user/drv_zocl.h"
+#endif
 
 // 3rd Party Library - Include files
 #include <boost/algorithm/string/predicate.hpp>
@@ -138,6 +143,27 @@ get_num_dev_total(bool is_user) const
   return mgmt_ready_list.size() + mgmt_nonready_list.size();
 }
 
+#ifdef XRT_NPU_ZOCL
+bool
+system_linux::
+is_zocl_device(device::id_type id) const
+{
+  const auto zocl_begin = static_cast<device::id_type>(user_ready_list.size());
+  const auto zocl_end = zocl_begin + static_cast<device::id_type>(zocl_dev_list.size());
+  return id >= zocl_begin && id < zocl_end;
+}
+
+std::shared_ptr<edge::dev>
+system_linux::
+get_zocl_dev(device::id_type id) const
+{
+  if (!is_zocl_device(id))
+    throw std::runtime_error("No ZOCL device with index '" + std::to_string(id) + "'");
+
+  return zocl_dev_list.at(id - user_ready_list.size());
+}
+#endif
+
 system_linux::
 system_linux()
 {
@@ -160,6 +186,15 @@ system_linux()
     else
       driver->scan_devices(mgmt_ready_list, mgmt_nonready_list);
   }
+
+#ifdef XRT_NPU_ZOCL
+  try {
+    edge::drv_zocl{}.scan_devices(zocl_dev_list);
+  }
+  catch (const std::exception& ex) {
+    xrt_core::send_exception_message(ex.what(), "WARNING");
+  }
+#endif
 }
 
 void
@@ -173,6 +208,10 @@ get_driver_info(boost::property_tree::ptree &pt)
     if (!_drv.empty())
       _ptDriverInfo.push_back( {"", _drv} );
   }
+#ifdef XRT_NPU_ZOCL
+  if (!zocl_dev_list.empty())
+    _ptDriverInfo.push_back({"", driver_version("zocl")});
+#endif
   pt.put_child("drivers", _ptDriverInfo);
 }
 
@@ -187,15 +226,20 @@ get_device_id(const std::string& bdf) const
   try {
     for (unsigned int i = 0;; i++) {
       auto dev = get_pcidev(i);
+      auto unified_id = i;
+#ifdef XRT_NPU_ZOCL
+      if (i >= user_ready_list.size())
+        unified_id += zocl_dev_list.size();
+#endif
       // [dddd:bb:dd.f]
       auto dev_bdf = boost::str(boost::format("%04x:%02x:%02x.%01x") % dev->m_domain % dev->m_bus % dev->m_dev % dev->m_func);
       if (dev_bdf == bdf)
-        return i;
+        return unified_id;
       // consider default domain as 0000 and try to find a matching device
       if (dev->m_domain == 0) {
         dev_bdf = boost::str(boost::format("%02x:%02x.%01x") % dev->m_bus % dev->m_dev % dev->m_func);
         if (dev_bdf == bdf)
-          return i;
+          return unified_id;
       }
     }
   }
@@ -208,6 +252,14 @@ std::pair<device::id_type, device::id_type>
 system_linux::
 get_total_devices(bool is_user) const
 {
+#ifdef XRT_NPU_ZOCL
+  if (is_user) {
+    const auto zocl_count = static_cast<device::id_type>(zocl_dev_list.size());
+    return std::make_pair(
+      static_cast<device::id_type>(get_num_dev_total(true)) + zocl_count,
+      static_cast<device::id_type>(get_num_dev_ready(true)) + zocl_count);
+  }
+#endif
   return std::make_pair(pci::get_dev_total(is_user), pci::get_dev_ready(is_user));
 }
 
@@ -215,6 +267,13 @@ std::tuple<uint16_t, uint16_t, uint16_t, uint16_t>
 system_linux::
 get_bdf_info(device::id_type id, bool is_user) const
 {
+#ifdef XRT_NPU_ZOCL
+  if (is_user && is_zocl_device(id))
+    return std::make_tuple(0, 0, 0, static_cast<uint16_t>(id));
+
+  if (is_user && id >= user_ready_list.size() + zocl_dev_list.size())
+    id -= zocl_dev_list.size();
+#endif
   auto pdev = get_pcidev(id, is_user);
   return std::make_tuple(pdev->m_domain, pdev->m_bus, pdev->m_dev, pdev->m_func);
 }
@@ -223,6 +282,15 @@ std::shared_ptr<device>
 system_linux::
 get_userpf_device(device::id_type id) const
 {
+#ifdef XRT_NPU_ZOCL
+  if (is_zocl_device(id)) {
+    auto zdev = get_zocl_dev(id);
+    return xrt_core::get_userpf_device(zdev->create_shim(id));
+  }
+
+  if (id >= user_ready_list.size() + zocl_dev_list.size())
+    id -= zocl_dev_list.size();
+#endif
   auto pdev = get_pcidev(id, true);
   return xrt_core::get_userpf_device(pdev->create_shim(id));
 }
@@ -231,6 +299,13 @@ std::shared_ptr<device>
 system_linux::
 get_userpf_device(device::handle_type handle, device::id_type id) const
 {
+#ifdef XRT_NPU_ZOCL
+  if (is_zocl_device(id))
+    return get_zocl_dev(id)->create_device(handle, id);
+
+  if (id >= user_ready_list.size() + zocl_dev_list.size())
+    id -= zocl_dev_list.size();
+#endif
   auto pdev = get_pcidev(id, true);
   return pdev->create_device(handle, id);
 }
@@ -314,5 +389,17 @@ register_driver(std::shared_ptr<drv> driver)
 }
 
 } // namespace pci
+
+#ifdef XRT_NPU_ZOCL
+namespace npu_zocl {
+
+std::shared_ptr<edge::dev>
+get_dev(device::id_type id)
+{
+  return singleton_system_linux()->get_zocl_dev(id);
+}
+
+} // namespace npu_zocl
+#endif
 
 } // xrt_core

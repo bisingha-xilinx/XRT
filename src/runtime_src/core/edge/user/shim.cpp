@@ -2,7 +2,11 @@
 // Copyright (C) 2016-2022 Xilinx, Inc. All rights reserved.
 // Copyright (C) 2022-2025 Advanced Micro Devices, Inc. All rights reserved.
 #include "shim.h"
-#include "system_linux.h"
+#ifdef XRT_NPU_ZOCL
+# include "core/common/system.h"
+#else
+# include "system_linux.h"
+#endif
 #include "hwctx_object.h"
 #include "dev_zocl.h"
 
@@ -45,13 +49,25 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 
-#include "plugin/xdp/hal_profile.h"
-
-#ifndef __HWEM__
-#include "plugin/xdp/hal_api_interface.h"
+#ifdef XRT_NPU_ZOCL
+# include "core/pcie/linux/plugin/xdp/hal_profile.h"
+#else
+# include "plugin/xdp/hal_profile.h"
 #endif
 
-#include "plugin/xdp/shim_callbacks.h"
+#ifndef __HWEM__
+# ifdef XRT_NPU_ZOCL
+#  include "core/pcie/linux/plugin/xdp/hal_api_interface.h"
+# else
+#  include "plugin/xdp/hal_api_interface.h"
+# endif
+#endif
+
+#ifdef XRT_NPU_ZOCL
+# include "core/pcie/linux/plugin/xdp/shim_callbacks.h"
+#else
+# include "plugin/xdp/shim_callbacks.h"
+#endif
 
 #if defined(XRT_ENABLE_LIBDFX)
 extern "C" {
@@ -115,7 +131,11 @@ std::map<uint64_t, uint32_t *> shim::mKernelControl;
 
 shim::
 shim(unsigned index, std::shared_ptr<xrt_core::edge::dev_zocl> edev_zocl)
+#ifdef XRT_NPU_ZOCL
+  : mCoreDevice(xrt_core::get_userpf_device(this, index))
+#else
   : mCoreDevice(xrt_core::edge_linux::get_userpf_device(this, index))
+#endif
   , mBoardNumber(index)
   , mKernelClockFreq(100)
   , mDev{std::move(edev_zocl)}
@@ -2243,6 +2263,7 @@ setAIEAccessMode(xrt::aie::access_mode am)
 ////////////////////////////////////////////////////////////////
 // Implementation of internal SHIM APIs
 ////////////////////////////////////////////////////////////////
+#ifndef XRT_NPU_ZOCL
 namespace xrt::shim_int {
 
 std::unique_ptr<xrt_core::hwctx_handle>
@@ -3147,3 +3168,4 @@ xclErrorClear(xclDeviceHandle handle)
 
   return drv->xclErrorClear();
 }
+#endif // XRT_NPU_ZOCL

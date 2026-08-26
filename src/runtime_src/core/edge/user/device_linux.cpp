@@ -7,7 +7,11 @@
 #include "aie_sys_parser.h"
 #include "core/common/smi/smi.h"
 #include "core/common/smi/smi_alveo.h"
-#include "system_linux.h"
+#ifdef XRT_NPU_ZOCL
+# include "core/pcie/linux/npu_zocl.h"
+#else
+# include "system_linux.h"
+#endif
 
 #include "core/common/debug_ip.h"
 #include "core/common/query_requests.h"
@@ -70,10 +74,25 @@ struct drm_fd
 
 static std::map<query::key_type, std::unique_ptr<query::request>> query_tbl;
 
+#ifdef XRT_NPU_ZOCL
+ZYNQ::shim*
+get_zocl_shim(xclDeviceHandle handle)
+{
+  auto shim = ZYNQ::shim::handleCheck(handle);
+  if (!shim)
+    throw xrt_core::error("Invalid ZOCL shim handle");
+  return shim;
+}
+#endif
+
 xrt_core::edge::dev_zocl*
 get_edgedev(const xrt_core::device* device)
 {
+#ifdef XRT_NPU_ZOCL
+  auto edev = xrt_core::npu_zocl::get_dev(device->get_device_id());
+#else
   auto edev = xrt_core::edge_linux::get_dev(device->get_device_id());
+#endif
   if (!edev)
     throw xrt_core::error("Invalid device handle");
   return dynamic_cast<xrt_core::edge::dev_zocl*>(edev.get());
@@ -112,7 +131,11 @@ static xclDeviceInfo2
 init_device_info(const xrt_core::device* device)
 {
   xclDeviceInfo2 dinfo;
+#ifdef XRT_NPU_ZOCL
+  get_zocl_shim(device->get_user_handle())->xclGetDeviceInfo2(&dinfo);
+#else
   xclGetDeviceInfo2(device->get_user_handle(), &dinfo);
+#endif
   return dinfo;
 }
 
@@ -901,7 +924,11 @@ struct debug_ip_layout_path
     path.resize(size);
 
     // Get Debug Ip layout path
+#ifdef XRT_NPU_ZOCL
+    get_zocl_shim(device->get_user_handle())->xclGetDebugIPlayoutPath(const_cast<char*>(path.data()), size);
+#else
     xclGetDebugIPlayoutPath(device->get_user_handle(), const_cast<char*>(path.data()), size);
+#endif
     return path;
   }
 };
@@ -912,7 +939,11 @@ struct device_clock_freq_mhz {
   static result_type
   get(const xrt_core::device* device, key_type key)
   {
+#ifdef XRT_NPU_ZOCL
+    return get_zocl_shim(device->get_user_handle())->xclGetDeviceClockFreqMHz();
+#else
     return xclGetDeviceClockFreqMHz(device->get_user_handle());
+#endif
   }
 };
 
@@ -927,7 +958,11 @@ struct trace_buffer_info
     result_type buf_info;
 
     // Get trace buf size and trace samples
+#ifdef XRT_NPU_ZOCL
+    get_zocl_shim(device->get_user_handle())->xclGetTraceBufferInfo(input_samples, buf_info.samples, buf_info.buf_size);
+#else
     xclGetTraceBufferInfo(device->get_user_handle(), input_samples, buf_info.samples, buf_info.buf_size);
+#endif
     return buf_info;
   }
 };
@@ -942,8 +977,14 @@ struct host_max_bandwidth_mbps
     bool read = std::any_cast<bool>(param);
 
     // Get read/write host max bandwidth in MBps
+#ifdef XRT_NPU_ZOCL
+    auto shim = get_zocl_shim(device->get_user_handle());
+    return read ? shim->xclGetHostReadMaxBandwidthMBps()
+                : shim->xclGetHostWriteMaxBandwidthMBps();
+#else
     return read ? xclGetHostReadMaxBandwidthMBps(device->get_user_handle())
                 : xclGetHostWriteMaxBandwidthMBps(device->get_user_handle());
+#endif
   }
 };
 
@@ -957,8 +998,14 @@ struct kernel_max_bandwidth_mbps
     bool read = std::any_cast<bool>(param);
 
     // Get read/write host max bandwidth in MBps
+#ifdef XRT_NPU_ZOCL
+    auto shim = get_zocl_shim(device->get_user_handle());
+    return read ? shim->xclGetKernelReadMaxBandwidthMBps()
+                : shim->xclGetKernelWriteMaxBandwidthMBps();
+#else
     return read ? xclGetKernelReadMaxBandwidthMBps(device->get_user_handle())
                 : xclGetKernelWriteMaxBandwidthMBps(device->get_user_handle());
+#endif
   }
 };
 
@@ -975,8 +1022,13 @@ struct read_trace_data
     trace_buf.resize(args.buf_size);
 
     // read trace data
+#ifdef XRT_NPU_ZOCL
+    get_zocl_shim(device->get_user_handle())->xclReadTraceData(
+      trace_buf.data(), args.buf_size, args.samples, args.ip_base_addr, args.words_per_sample);
+#else
     xclReadTraceData(device->get_user_handle(), trace_buf.data(),
                      args.buf_size, args.samples, args.ip_base_addr, args.words_per_sample);
+#endif
     return trace_buf;
   }
 };
@@ -1224,7 +1276,7 @@ static X x;
 
 }
 
-namespace xrt_core {
+namespace xrt_core::edge {
 
 const query::request&
 device_linux::
@@ -1240,9 +1292,22 @@ lookup_query(query::key_type query_key) const
 
 device_linux::
 device_linux(handle_type device_handle, id_type device_id, bool user)
+#ifdef XRT_NPU_ZOCL
+  : noshim<device_edge>(device_handle, device_id, user)
+#else
   : shim<device_edge>(device_handle, device_id, user)
+#endif
 {
 }
+
+#ifdef XRT_NPU_ZOCL
+void
+device_linux::
+close_device()
+{
+  delete get_zocl_shim(get_device_handle());
+}
+#endif
 
 void
 device_linux::
@@ -1303,7 +1368,11 @@ void
 device_linux::
 set_cu_read_range(cuidx_type cuidx, uint32_t start, uint32_t size)
 {
+#ifdef XRT_NPU_ZOCL
+  if (auto ret = get_zocl_shim(get_device_handle())->xclIPSetReadRange(cuidx.index, start, size))
+#else
   if (auto ret = xclIPSetReadRange(get_device_handle(), cuidx.index, start, size))
+#endif
     throw xrt_core::error(ret, "failed to set cu read range");
 }
 
@@ -1354,17 +1423,75 @@ std::unique_ptr<buffer_handle>
 device_linux::
 import_bo(pid_t pid, shared_handle::export_handle ehdl)
 {
-  if (pid == 0 || getpid() == pid)
+  if (pid == 0 || getpid() == pid) {
+#ifdef XRT_NPU_ZOCL
+    return get_zocl_shim(get_device_handle())->xclImportBO(ehdl, 0);
+#else
     return xrt::shim_int::import_bo(get_device_handle(), ehdl);
+#endif
+  }
 
   throw xrt_core::error(std::errc::not_supported, __func__);
+}
+
+std::unique_ptr<hwctx_handle>
+device_linux::
+create_hw_context(const xrt::uuid& xclbin_uuid,
+                  const xrt::hw_context::cfg_param_type& cfg_param,
+                  xrt::hw_context::access_mode mode) const
+{
+#ifdef XRT_NPU_ZOCL
+  return get_zocl_shim(get_device_handle())->create_hw_context(
+    get_device_handle(), xclbin_uuid, cfg_param, mode);
+#else
+  return xrt::shim_int::create_hw_context(get_device_handle(), xclbin_uuid, cfg_param, mode);
+#endif
+}
+
+void
+device_linux::
+register_xclbin(const xrt::xclbin& xclbin) const
+{
+#ifdef XRT_NPU_ZOCL
+  get_zocl_shim(get_device_handle())->register_xclbin(xclbin);
+#else
+  xrt::shim_int::register_xclbin(get_device_handle(), xclbin);
+#endif
+}
+
+std::unique_ptr<buffer_handle>
+device_linux::
+alloc_bo(size_t size, uint64_t flags)
+{
+#ifdef XRT_NPU_ZOCL
+  return get_zocl_shim(get_device_handle())->xclAllocBO(size, xcl_bo_flags{flags}.flags);
+#else
+  return xrt::shim_int::alloc_bo(get_device_handle(), size, xcl_bo_flags{flags}.flags);
+#endif
+}
+
+std::unique_ptr<buffer_handle>
+device_linux::
+alloc_bo(void* userptr, size_t size, uint64_t flags)
+{
+#ifdef XRT_NPU_ZOCL
+  return get_zocl_shim(get_device_handle())->xclAllocUserPtrBO(
+    userptr, size, xcl_bo_flags{flags}.flags);
+#else
+  return xrt::shim_int::alloc_bo(
+    get_device_handle(), userptr, size, xcl_bo_flags{flags}.flags);
+#endif
 }
 
 void
 device_linux::
 get_device_info(xclDeviceInfo2 *info)
 {
+#ifdef XRT_NPU_ZOCL
+  if (auto ret = get_zocl_shim(get_device_handle())->xclGetDeviceInfo2(info))
+#else
   if (auto ret = xclGetDeviceInfo2(get_device_handle(), info))
+#endif
     throw system_error(ret, "failed to get device info");
 }
 
@@ -1372,6 +1499,10 @@ std::string
 device_linux::
 get_sysfs_path(const std::string& subdev, const std::string& entry)
 {
+#ifdef XRT_NPU_ZOCL
+  (void)subdev;
+  return get_zocl_shim(get_device_handle())->xclGetSysfsPath(entry);
+#else
   constexpr size_t max_path = 256;
   std::string path_buf(max_path, '\0');
 
@@ -1379,6 +1510,7 @@ get_sysfs_path(const std::string& subdev, const std::string& entry)
     throw system_error(ret, "failed to get device info");
 
   return path_buf;
+#endif
 }
 
 #ifdef XRT_ENABLE_AIE
@@ -1433,13 +1565,45 @@ void
 device_linux::
 load_axlf_meta(const axlf* buffer)
 {
+#ifdef XRT_NPU_ZOCL
+  register_axlf(buffer);
+  auto drv = get_zocl_shim(get_device_handle());
+  auto data = get_axlf_section(AIE_METADATA);
+  if (data.first && data.second)
+    drv->registerAieArray();
+#else
   if (auto ret = xclLoadXclBinMeta(get_device_handle(), buffer))
     throw system_error(ret, "failed to load xclbin");
+#endif
 }
 #endif
 ////////////////////////////////////////////////////////////////
 // Custom IP interrupt handling
 ////////////////////////////////////////////////////////////////
+xclInterruptNotifyHandle
+device_linux::
+open_ip_interrupt_notify(unsigned int ip_index)
+{
+#ifdef XRT_NPU_ZOCL
+  return get_zocl_shim(get_device_handle())->xclOpenIPInterruptNotify(ip_index, 0);
+#else
+  return xclOpenIPInterruptNotify(get_device_handle(), ip_index, 0);
+#endif
+}
+
+void
+device_linux::
+close_ip_interrupt_notify(xclInterruptNotifyHandle handle)
+{
+#ifdef XRT_NPU_ZOCL
+  if (auto ret = get_zocl_shim(get_device_handle())->xclCloseIPInterruptNotify(handle))
+    throw system_error(ret, "failed to close IP interrupt notification");
+#else
+  if (auto ret = xclCloseIPInterruptNotify(get_device_handle(), handle))
+    throw system_error(ret, "failed to close IP interrupt notification");
+#endif
+}
+
 void
 device_linux::
 enable_ip_interrupt(xclInterruptNotifyHandle handle)
@@ -1494,4 +1658,4 @@ wait_ip_interrupt(xclInterruptNotifyHandle handle, int32_t timeout)
   throw error(-EINVAL, boost::str(boost::format("wait_timeout: POSIX poll unexpected event: %d")  % pfd.revents));
 }
 
-} // xrt_core
+} // namespace xrt_core::edge
