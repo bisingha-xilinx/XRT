@@ -15,6 +15,7 @@ error()
     echo "ERROR: $1" 1>&2
     usage_and_exit 1
 }
+
 usage()
 {
     echo "Usage: $PROGRAM [options] "
@@ -69,13 +70,14 @@ install_recipes()
     mkdir -p ${META_USER_PATH}/recipes-xrt/zocl
     XRT_BB=${META_USER_PATH}/recipes-xrt/xrt/xrt_%.bbappend
     ZOCL_BB=${META_USER_PATH}/recipes-xrt/zocl/zocl_%.bbappend
+
     grep "inherit externalsrc" $XRT_BB
     if [ $? != 0 ]; then
         echo "inherit externalsrc" > $XRT_BB
         echo "EXTERNALSRC = \"$XRT_REPO_DIR/src\"" >> $XRT_BB
         echo "EXTRA_OECMAKE += \"-DMY_VITIS=$XILINX_VITIS -DXRT_EDGE=1 -DXRT_YOCTO=1 -DCMAKE_INSTALL_PREFIX=/usr\"" >> $XRT_BB
         echo 'EXTERNALSRC_BUILD = "${WORKDIR}/build"' >> $XRT_BB
-	echo 'DEPENDS += " systemtap"' >> $XRT_BB
+        echo 'DEPENDS += " systemtap"' >> $XRT_BB
         echo 'PACKAGE_CLASSES = "package_rpm"' >> $XRT_BB
         echo 'LICENSE = "GPL-2.0-or-later & Apache-2.0"' >> $XRT_BB
         echo 'LIC_FILES_CHKSUM = "file://../LICENSE;md5=de2c993ac479f02575bcbfb14ef9b485 \' >> $XRT_BB
@@ -127,28 +129,25 @@ if [[ $clean == 1 ]]; then
     echo "/bin/rm -rf $yocto_path"
     /bin/rm -rf "$yocto_path"
     /bin/rm -rf $ABS_PATH/.repo
-    exit 0       
+    exit 0
 fi
 
-# Check if architecture is specified for build
 if [[ -z "$ARCH" ]]; then
     error "Architecture not specified. Use -aarch [vek385|vrk160|vck190|vek280]"
 fi
 
-# Set architecture-specific parameters
 set_architecture_params
 
-if [ -f $SETTINGS_FILE  ]; then
+if [ -f $SETTINGS_FILE ]; then
     echo "source YOCTO Manifest from local file"
     source $SETTINGS_FILE
 fi
 
 if [[ -z ${XILINX_VITIS:+x} ]] || [[ ! -d ${XILINX_VITIS} ]]; then
-   echo "XILINX_VITIS is not available. Please source Vitis"
-   exit 1
+    echo "XILINX_VITIS is not available. Please source Vitis"
+    exit 1
 fi
 
-#Check if repo is installed and get its version
 if ! command -v repo &> /dev/null; then
     echo "Repo command not found. Installing repo..."
     install_repo
@@ -166,12 +165,24 @@ else
     cd $yocto_path
 
     echo "repo init -u $REPO_URL -b $BRANCH -m $MANIFEST_PATH/$MANIFEST_FILE"
-    yes ""| repo init -u $REPO_URL -b $BRANCH -m $MANIFEST_PATH/$MANIFEST_FILE
+    yes "" | repo init -u $REPO_URL -b $BRANCH -m $MANIFEST_PATH/$MANIFEST_FILE
 
     repo sync
     source edf-init-build-env
     install_recipes
 fi
+
+LOCAL_CONF="$yocto_path/build/conf/local.conf"
+CUSTOM_TMPDIR="/tmp/XRT_11Nov_vck190_base"
+
+if [ ! -f "$LOCAL_CONF" ]; then
+    echo "ERROR: Missing $LOCAL_CONF" >&2
+    exit 1
+fi
+
+mkdir -p "$CUSTOM_TMPDIR"
+sed -i '/^[[:space:]]*TMPDIR[[:space:]]*=/d' "$LOCAL_CONF"
+printf 'TMPDIR = "%s"\n' "$CUSTOM_TMPDIR" >> "$LOCAL_CONF"
 
 if MACHINE=$MACHINE bitbake xrt; then
     echo "bitbake xrt succeeded."
@@ -179,9 +190,9 @@ if MACHINE=$MACHINE bitbake xrt; then
     rm -rf "$yocto_path/rpms"
     mkdir -p "$yocto_path/rpms"
 
-    cp -rf "$yocto_path/build/tmp/deploy/rpm/$RPM_ARCH_DIR/xrt-"* "$yocto_path/rpms/"
-    cp -rf "$yocto_path/build/tmp/deploy/rpm/$RPM_ARCH_DIR/zocl-"* "$yocto_path/rpms/"
-    cp -rf "$yocto_path/build/tmp/deploy/rpm/$RPM_ARCH_DIR/kernel-"* "$yocto_path/rpms/"
+    cp -rf "$CUSTOM_TMPDIR/deploy/rpm/$RPM_ARCH_DIR/xrt-"* "$yocto_path/rpms/"
+    cp -rf "$CUSTOM_TMPDIR/deploy/rpm/$RPM_ARCH_DIR/zocl-"* "$yocto_path/rpms/"
+    cp -rf "$CUSTOM_TMPDIR/deploy/rpm/$RPM_ARCH_DIR/kernel-"* "$yocto_path/rpms/"
 
     cd $yocto_path/rpms
     echo "Creating $yocto_path/rpms/install_xrt.sh"
@@ -189,9 +200,9 @@ if MACHINE=$MACHINE bitbake xrt; then
 
     rpm_list=$(ls *.rpm)
     for dbg in $xrt_dbg; do
-            rpm_list=$(echo "$rpm_list" | sed -e "s|$dbg||g")
+        rpm_list=$(echo "$rpm_list" | sed -e "s|$dbg||g")
     done
-    # Remove any empty entries and extra spaces
+
     final_rpms=$(echo $rpm_list | xargs)
 
     echo dnf --disablerepo=\"*\" install -y $final_rpms > $yocto_path/rpms/install_xrt.sh
